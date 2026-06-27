@@ -1,42 +1,89 @@
-"use client"
+"use client";
+
 import { usePathname } from "next/navigation";
 import { Search, Settings, UserRoundPen } from "lucide-react";
 import ThemeToggle from "../themeprovider";
+import { useTheme } from "next-themes";
+import { useEffect, useState } from "react";
+import ProfileDropdown from "../kokonutui/profile-dropdown";
+
 
 export default function Header() {
     const pathname = usePathname();
     const page = pathname.split("/")[2];
 
-    return (
-        <div className="w-full flex flex-row  justify-between md:justify-between items-center  z-0 px-4 md:px-6 py-3">
+    const { resolvedTheme } = useTheme();
 
-            {/* Left Section: Breadcrumbs - Shifts right on mobile to avoid the hamburger button */}
-            <div className="flex flex-col justify-start text-[14px] font-sans font-bold ml-14 md:ml-0 transition-all duration-300">
-                <span className="font-normal text-shadow-black text-black "><span className="text-zinc-500 font-normal ">{pathname.split("/")[1]}</span> / {pathname.split("/")[2]}</span>
-                <div className="capitalize">{page !== undefined ? page : "dashboard"}</div>
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    // Prevent hydration mismatch
+    if (!mounted) {
+        return (
+            <div className="w-full flex flex-row justify-between items-center px-4 md:px-6 py-3 h-18" />
+        );
+    }
+
+    const isDark = resolvedTheme === "dark";
+
+    return (
+        <div className="w-full flex flex-row justify-between transition-all duration-200 items-center px-4 md:px-6 py-3">
+            {/* Left */}
+            <div className="flex flex-col ml-14 md:ml-0 text-[14px] font-sans font-bold">
+                <span className="font-normal">
+                    <span className="text-zinc-500">
+                        {pathname.split("/")[1]}
+                    </span>
+
+                    <span className="text-orange-400"> / </span>
+
+                    {pathname.split("/")[2]}
+                </span>
+
+                <div className="capitalize">
+                    {page ?? "dashboard"}
+                </div>
             </div>
 
-
-            {/* Right Section: User & Settings */}
+            {/* Right */}
             <div className="flex items-center gap-4 md:gap-6">
-                <div className="hidden sm:flex flex-row h-10 flex-1 max-w-xs md:max-w-sm mx-4 justify-start pl-3 gap-2 bg-white rounded-3xl items-center border border-gray-100 shadow-sm">
-                    <Search size={18} color="gray" strokeWidth={3} className="ml-2 text-zinc-900 shrink-0" />
+                <div className="hidden sm:flex h-10 max-w-sm w-72 items-center gap-2 rounded-3xl border border-gray-100 bg-white px-3 shadow-sm dark:bg-zinc-900 dark:border-zinc-700">
+                    <Search
+                        size={18}
+                        strokeWidth={3}
+                        className={isDark ? "text-white" : "text-gray-500"}
+                    />
+
                     <input
                         type="text"
                         placeholder="rechercher ici"
-                        className="w-full h-full font-mono bg-white outline-0 rounded-3xl pr-4 text-[12px]"
+                        className="w-full bg-transparent outline-none text-[12px] font-mono text-black dark:text-white placeholder:text-gray-400"
                     />
                 </div>
 
-                <ThemeToggle />
+                <ThemeToggle variant="hexagon" duration={400} fromCenter={true} />
 
-                <div className="flex flex-row items-center text-zinc-700 font-sans gap-2">
-                    <UserRoundPen size={18} color="gray" strokeWidth={2} className="text-zinc-900" />
-                    <a className="text-sm font-medium hidden xs:inline">User</a>
+
+
+                {/* <div className="flex items-center gap-2 text-zinc-700">
+                    <UserRoundPen
+                        size={18}
+                        strokeWidth={2}
+                        className={isDark ? "text-white" : "text-black"}
+                    />
                 </div>
-                <Settings size={18} color="black" strokeWidth={2} className="text-zinc-900 cursor-pointer hover:rotate-45 transition-transform duration-200" />
-            </div>
 
+                <Settings
+                    size={18}
+                    strokeWidth={2}
+                    className={`cursor-pointer transition-transform duration-200 hover:rotate-45 ${isDark ? "text-white" : "text-black"
+                        }`}
+                /> */}
+                <ProfileDropdown />
+            </div>
         </div>
     );
 }

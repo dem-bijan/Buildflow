@@ -6,8 +6,8 @@ import SplitText from "@/components/SplitText";
 import TargetCursor from '@/components/TargetCursor';
 import { LogIn, FilePen, ChevronDown } from "lucide-react";
 import ButtonStyled from '@/components/button';
-import ThemeToggle from "@/components/themeprovider";
 import SignUpModal from "@/components/SignUp";
+
 
 export default function Home() {
   const [showSignIn, setShowSignIn] = useState(false);
@@ -22,7 +22,7 @@ export default function Home() {
 
           {/* Logo / brand placeholder */}
           <div className="flex justify-start items-center min-w-0">
-            <span className="text-white font-mono font-bold text-sm md:text-lg truncate">Buildflow</span>
+            <span className="text-content-primary-dark font-mono font-bold text-sm md:text-lg truncate">Buildflow</span>
           </div>
 
           {/* Controls & CTA buttons */}
@@ -62,11 +62,11 @@ export default function Home() {
         <div>
           <SplitText
             text="Buildflow"
-            className="text-5xl sm:text-6xl md:text-8xl cursor-target font-mono text-center"
+            className="text-5xl text-white sm:text-6xl md:text-8xl cursor-target font-mono text-center"
             delay={50}
             duration={1.25}
             ease="power3.out"
-            splitType="chars"
+            splitType="words"
             from={{ opacity: 0, y: 40 }}
             to={{ opacity: 1, y: 0 }}
             threshold={0.1}
@@ -77,7 +77,7 @@ export default function Home() {
         <div className="mb-10 md:mb-40 ml-0 md:ml-40 mt-2 md:mt-0">
           <SplitText
             text="Fast , Smart & Secure"
-            className="text-lg sm:text-xl md:text-2xl text-center font-script"
+            className="text-lg text-white sm:text-xl md:text-2xl text-center font-script"
             delay={50}
             duration={1.25}
             ease="power3.out"
@@ -93,8 +93,8 @@ export default function Home() {
 
       {/* ── Scroll indicator ── */}
       <div className="flex-none flex flex-row w-screen justify-center items-center pb-4 md:pb-6">
-        <div className="animate-[bounce_1.5s_ease-in-out_infinite] scale-125 md:scale-150">
-          <ChevronDown size={32} className="md:w-10 md:h-10" />
+        <div className="animate-[bounce_1s_ease-in-out_infinite] scale-125 md:scale-150">
+          <ChevronDown size={32} className="md:w-10 text-white md:h-10" />
         </div>
       </div>
     </div>
