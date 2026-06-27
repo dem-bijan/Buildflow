@@ -4,28 +4,131 @@
 @variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+   --background: #ffffff;
+   --foreground: #171717;
 }
 
 .dark {
-  --background: #0a0a0a;
-  --foreground: #ededed;
+   --background: #0a0a0a;
+   --foreground: #ededed;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+   --color-background: var(--background);
+   --color-foreground: var(--foreground);
+   --font-sans: var(--font-geist-sans);
+   --font-mono: var(--font-geist-mono);
 }
 
 @theme {
-  --font-script: var(--font-marck-script);
+   --font-script: var(--font-marck-script);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+   background: var(--background);
+   color: var(--foreground);
+   font-family: Arial, Helvetica, sans-serif;
+}
+
+@theme {
+   /* ===========================
+     Fonts
+     =========================== */
+
+   --font-mono: var(--font-roboto-mono), monospace;
+   --font-script: var(--font-marck-script), cursive;
+
+   /* ===========================
+     Surface Colors
+     =========================== */
+
+   --color-surface-page: #f5f0eb;
+   --color-surface-page-dark: #191919;
+
+   --color-surface-card: #ffffff;
+   --color-surface-card-dark: #242424;
+
+   --color-surface-raised: #f0e8e0;
+   --color-surface-raised-dark: #2d2d2d;
+
+   --color-surface-hover: #e8ddd4;
+   --color-surface-hover-dark: #333333;
+
+   /* ===========================
+     Accent
+     =========================== */
+
+   --color-accent: #e2630a;
+
+   --color-accent-50: #fff3e8;
+   --color-accent-200: #ffd4b0;
+   --color-accent-400: #f5843a;
+   --color-accent-600: #c05a00;
+   --color-accent-800: #7a2e00;
+   --color-accent-950: #3d1600;
+
+   /* ===========================
+     Content
+     =========================== */
+
+   --color-content-primary: #1a1410;
+   --color-content-primary-dark: #fff8f0;
+
+   --color-content-secondary: #4a3020;
+   --color-content-secondary-dark: #d4c9bc;
+
+   --color-content-muted: #7a6050;
+   --color-content-muted-dark: #7a6e65;
+
+   --color-content-inverse: #0d0d0d;
+
+   /* ===========================
+     Borders
+     =========================== */
+
+   --color-edge-subtle: #e8ddd4;
+   --color-edge-subtle-dark: #222222;
+
+   --color-edge-default: #d4c0ae;
+   --color-edge-default-dark: #2a2520;
+
+   --color-edge-strong: #b09080;
+   --color-edge-strong-dark: #3d3028;
+
+   /* ===========================
+     Radius
+     =========================== */
+
+   --radius-card: 12px;
+   --radius-badge: 20px;
+   --radius-icon: 8px;
+
+   /* ===========================
+     Shadows
+     =========================== */
+
+   --shadow-card-accent: 0 0 0 1.5px rgba(192, 90, 0, .35);
+   --shadow-card-accent-hover: 0 0 0 1.5px rgba(192, 90, 0, .65);
+
+   --shadow-card-dark: 0 0 0 1.5px rgba(226, 99, 10, .40);
+   --shadow-card-dark-hover: 0 0 0 1.5px rgba(226, 99, 10, .70);
+}
+
+.recharts-surface {
+   outline: none !important;
+}
+
+.recharts-surface:focus,
+.recharts-surface:focus-visible {
+   outline: none !important;
+}
+
+.recharts-wrapper:focus,
+.recharts-wrapper:focus-visible {
+   outline: none !important;
+}
+
+::view-transition-old(root), ::view-transition-new(root) {
+    animation: none;
+    mix-blend-mode: normal;
 }
