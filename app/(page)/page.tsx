@@ -7,11 +7,27 @@ import TargetCursor from '@/components/TargetCursor';
 import { LogIn, FilePen, ChevronDown } from "lucide-react";
 import ButtonStyled from '@/components/button';
 import SignUpModal from "@/components/SignUp";
+import { useSearchParams } from "next/navigation";
+import { useEffect } from "react";
 
 
 export default function Home() {
+  const searchParams = useSearchParams();
   const [showSignIn, setShowSignIn] = useState(false);
   const [showSignUp, setShowSignUp] = useState(false);
+
+  // After a successful registration, close sign-up and open sign-in instead
+  // of navigating to a dashboard that may not exist / auto-logging them in.
+  function handleRegistered() {
+    setShowSignUp(false);
+    setShowSignIn(true);
+  }
+
+  useEffect(() => {
+    if (searchParams.get("signin") === "1") {
+      setShowSignIn(true);
+    }
+  }, [searchParams]);
 
   return (
     <div className="flex flex-col items-center min-h-screen w-screen justify-center">
@@ -40,7 +56,11 @@ export default function Home() {
                 text="Inscrivez-vous"
                 icon={FilePen}
               />
-              <SignUpModal isOpen={showSignUp} onClose={() => setShowSignUp(false)} />
+              <SignUpModal
+                isOpen={showSignUp}
+                onClose={() => setShowSignUp(false)}
+                onRegistered={handleRegistered}
+              />
             </div>
 
             {/* Sign In Button & Modal */}

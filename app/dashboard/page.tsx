@@ -3,6 +3,12 @@
 import { motion } from "framer-motion";
 import TrendChart from "@/components/Trendchart";
 import LatestPurchasesCard from "@/app/dashboard/timestamper";
+import { GetStackBarchart } from "@/app/dashboard/salaires/GetStackBarchart";
+import CompAffectation from "./affectation/compAffectation";
+import CompAchats from "./achats/compAchats";
+import CompTresorerie from "./tresorerie/compTresorerie";
+
+
 
 export default function DashboardPage() {
     return (
@@ -27,19 +33,12 @@ export default function DashboardPage() {
                 <div className="flex-[2.5] min-w-0"><LatestPurchasesCard /></div>
             </section>
 
-            <div className="xl:col-span-2 min-h-55 rounded-xl bg-white dark:bg-zinc-800 shadow">Widget A</div>
-            <div className="xl:col-span-2 min-h-55 rounded-xl bg-blue-100 dark:bg-blue-950 shadow">Widget B</div>
-            <div className="xl:col-span-2 min-h-55 rounded-xl bg-green-100 dark:bg-green-950 shadow">Widget C</div>
-            <div className="xl:col-span-2 min-h-55 rounded-xl bg-yellow-100 dark:bg-yellow-950 shadow">Widget D</div>
-            <div className="xl:col-span-4 min-h-55 rounded-xl bg-pink-100 dark:bg-pink-950 shadow">Widget E</div>
-            <div className="xl:col-span-4 min-h-55 rounded-xl bg-pink-200 dark:bg-pink-900 shadow">Widget F</div>
+            <div className="xl:col-span-2 min-h-55 rounded-xl shadow"><GetStackBarchart /></div>
+            <div className="xl:col-span-6 min-h-55 rounded-xl shadow  "><CompAffectation></CompAffectation></div>
+            <div className="xl:col-span-4 min-h-55 rounded-xl shadow"><CompAchats /></div>
+            <div className="xl:col-span-4 min-h-55 rounded-xl shadow"><CompTresorerie /></div>
 
-            <div className="xl:col-span-2 min-h-55 rounded-xl bg-white dark:bg-zinc-800 shadow">Widget A</div>
-            <div className="xl:col-span-2 min-h-55 rounded-xl bg-blue-100 dark:bg-blue-950 shadow">Widget B</div>
-            <div className="xl:col-span-2 min-h-55 rounded-xl bg-green-100 dark:bg-green-950 shadow">Widget C</div>
-            <div className="xl:col-span-2 min-h-55 rounded-xl bg-yellow-100 dark:bg-yellow-950 shadow">Widget D</div>
-            <div className="xl:col-span-4 min-h-55 rounded-xl bg-pink-100 dark:bg-pink-950 shadow">Widget E</div>
-            <div className="xl:col-span-4 min-h-55 rounded-xl bg-pink-200 dark:bg-pink-900 shadow">Widget F</div>
+            <div className="xl:col-span-4 min-h-55 rounded-xl shadow"></div>
         </motion.div>
     );
 }

@@ -1,9 +1,11 @@
 "use client";
 
-import { CreditCard, FileText, LogOut, Settings, User } from "lucide-react";
+import { FileText, LogOut, Settings, User } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import * as React from "react";
+import { useRouter } from "next/navigation";
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/authContext";
 
 interface Profile {
   name: string;
@@ -49,6 +52,9 @@ export default function ProfileDropdown({
   ...props
 }: ProfileDropdownProps) {
   const [isOpen, setIsOpen] = React.useState(false);
+  const { user } = useAuth();
+  const name = "@" + user?.email?.split("@")[0];
+
   const menuItems: MenuItem[] = [
     {
       label: "Profile",
@@ -67,6 +73,18 @@ export default function ProfileDropdown({
       external: true,
     },
   ];
+  const router = useRouter();
+  async function handleLogout() {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      await new Promise((r) => setTimeout(r, 0));
+      window.location.href = "/";
+    }
+    catch (e) {
+      alert("Logout failed");
+    }
+
+  }
 
   return (
     <div className={cn("relative", className)} {...props}>
@@ -79,10 +97,10 @@ export default function ProfileDropdown({
             >
               <div className="flex-1 text-left">
                 <div className="text-sm font-serif font-bold text-zinc-900 leading-tight tracking-tight dark:text-zinc-100">
-                  {data.name}
+                  {name}
                 </div>
                 <div className="text-xs font-serif text-zinc-500 leading-tight tracking-tight dark:text-zinc-400">
-                  {data.email}
+                  {user?.email}
                 </div>
               </div>
               <div className="relative">
@@ -146,6 +164,7 @@ export default function ProfileDropdown({
               <button
                 className="group flex w-full cursor-pointer items-center gap-3 rounded-xl border border-transparent bg-red-500/10 p-3 transition-all duration-200 hover:border-red-500/30 hover:bg-red-500/20 hover:shadow-sm"
                 type="button"
+                onClick={handleLogout}
               >
                 <LogOut className="h-4 w-4 text-red-500 group-hover:text-red-600" />
                 <span className="font-medium text-red-500 text-sm group-hover:text-red-600">

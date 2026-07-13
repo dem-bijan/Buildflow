@@ -2,6 +2,8 @@
 
 import ShinyText from "@/components/ShinyText";
 import { LayoutGroup } from "framer-motion";
+import { useAuth } from "@/lib/authContext";
+import { isAllowed } from "@/lib/auth/permissions";
 import SidebarItem from "./SidebarItem";
 import {
     LayoutDashboard,
@@ -17,6 +19,7 @@ import {
     Truck,
     ContactRound,
     Menu,
+    User,
     X,
 } from "lucide-react";
 
@@ -34,26 +37,29 @@ const sections = [
     { title: "Affectation (Projets)", href: "/dashboard/affectation", icon: FolderKanban },
     { title: "Catalogue Articles", href: "/dashboard/catalogue", icon: BookOpen },
     { title: "Fournisseurs", href: "/dashboard/fournisseurs", icon: Truck },
+    { title: "Paiements", href: "/dashboard/payments", icon: Wallet },
     { title: "Annuaire", href: "/dashboard/annuaire", icon: ContactRound },
     { title: "Comptabilite", href: "/dashboard/comptabilite", icon: DollarSign },
+    { title: "Approbations", href: "/dashboard/approbations", icon: User },
 ];
 
 export default function Sidebar() {
+    const { user, loading } = useAuth();
     const [isOpen, setIsOpen] = useState(false);
-
     const { resolvedTheme } = useTheme();
-
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
         setMounted(true);
     }, []);
 
-    if (!mounted) {
-        return null;
-    }
+    // All hooks are called above this line, unconditionally, every render.
+    // Conditional returns can safely happen after this point.
+    if (loading) return null;
+    if (!mounted) return null;
 
     const isDark = resolvedTheme === "dark";
+    const visibleItems = sections.filter((section) => isAllowed(section.href, user?.role as any));
 
     return (
         <>
@@ -96,22 +102,20 @@ export default function Sidebar() {
                 <div className="hidden md:flex h-12 justify-center font-mono items-center mb-4">
                     <ShinyText
                         text="Buildflow"
-                        speed={1.4}
+                        speed={2}
                         delay={0}
-                        color={isDark ? "#c17c2c" : "#00000"}
-                        shineColor="#ffffff"
-                        spread={60}
-                        direction="right"
-                        yoyo={false}
-                        pauseOnHover
-                        disabled={false}
+                        color={isDark ? "#fff8f0" : "#1a1410"}
+                        shineColor={isDark ? "#1a1410" : "#fff8f0"}
+                        spread={45}
+                        yoyo={true}
+                        disabled={!mounted}
                     />
                 </div>
 
                 {/* Navigation */}
                 <nav className="flex-1 flex flex-col items-center w-[90%] overflow-y-auto pr-2 pb-6">
                     <LayoutGroup id="sidebar-navigation">
-                        {sections.map((section) => (
+                        {visibleItems.map((section) => (
                             <SidebarItem
                                 key={section.href}
                                 {...section}
