@@ -1,10 +1,8 @@
-export default function SalairesPage() {
-  return (
-    <div className="p-8">
-      <h1 className="text-2xl font-semibold">Salaires</h1>
-      <p className="text-muted-foreground mt-2">
-        Bienvenue sur la page <strong>Salaires</strong>.
-      </p>
-    </div>
-  );
+// Server Component – no "use client"
+import { getFichesPaie } from "@/lib/data/salaires";
+import SalairesClient from "./SalairesClient";
+
+export default async function SalairesPage() {
+  const fiches = await getFichesPaie("2025-06");
+  return <SalairesClient fiches={fiches} />;
 }
