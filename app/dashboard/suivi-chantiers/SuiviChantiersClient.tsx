@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { fetchChantiers } from "@/lib/api/chantier";
+import { fetchChantiers, createChantier } from "@/lib/api/chantier";
 import { hydrate } from "@/components/functions2";
 import type { Chantier, ChantiersHydrated } from "@/components/functions2";
 import { chantiersHydrationConfig } from "@/components/functions2";
@@ -13,8 +13,9 @@ import {
   PieChart,
   DonutChart,
   RefreshButton,
+  PrimaryActionButton,
 } from "@/components/Functions";
-import type { ChantierDTO } from "@/lib/api/chantier";
+import type { ChantierDTO, CreateChantierDTO, ChantierStatut } from "@/lib/api/chantier";
 
 const STATUT_LABELS: Record<string, string> = {
   EN_PREPARATION: "En préparation",
@@ -37,6 +38,7 @@ export default function SuiviChantiersClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [showForm, setShowForm] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -126,8 +128,18 @@ export default function SuiviChantiersClient() {
           </div>
           <div className="flex items-center gap-3">
             <RefreshButton onClick={() => load()} loading={loading} />
+            <PrimaryActionButton onClick={() => setShowForm(v => !v)}>
+              {showForm ? "Fermer" : "+ Nouveau chantier"}
+            </PrimaryActionButton>
           </div>
         </div>
+
+        {showForm && (
+          <CreateChantierForm
+            onCreated={() => { setShowForm(false); load(); }}
+            onCancel={() => setShowForm(false)}
+          />
+        )}
 
         <Section title="Vue d'ensemble">
           <KpiGrid kpis={h.kpis} />
@@ -227,5 +239,101 @@ function ChantiersTable({ chantiers }: { chantiers: ChantierDTO[] }) {
         </tbody>
       </table>
     </div>
+  );
+}
+
+// ─── Create Form ────────────────────────────────────────────────────────────
+function CreateChantierForm({ onCreated, onCancel }: { onCreated: () => void; onCancel: () => void }) {
+  const [submitting, setSubmitting] = useState(false);
+  const [err, setErr] = useState("");
+  const [form, setForm] = useState<CreateChantierDTO>({
+    code: "", nom: "", client: "", adresse: "", ville: "",
+    statut: "EN_PREPARATION", dateDebut: "", dateFin: "", budgetHt: 0, chefProjetNom: "",
+  });
+
+  const set = <K extends keyof CreateChantierDTO>(key: K, val: CreateChantierDTO[K]) =>
+    setForm(prev => ({ ...prev, [key]: val }));
+
+  const submit = async () => {
+    if (!form.code || !form.nom || !form.client || !form.dateDebut || !form.dateFin || !form.budgetHt) {
+      setErr("Veuillez remplir les champs obligatoires (Code, Nom, Client, Dates, Budget).");
+      return;
+    }
+    setSubmitting(true); setErr("");
+    try {
+      await createChantier(form);
+      onCreated();
+    } catch {
+      setErr("Erreur lors de la création");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const inputCls = "w-full px-3 py-2 text-sm rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow";
+
+  return (
+    <Card className="mb-6 p-5">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-sm font-bold text-content-primary dark:text-content-primary-dark">Ajouter un chantier</h3>
+        <button onClick={onCancel} className="text-xs text-content-muted hover:text-content-primary transition-colors">✕ Annuler</button>
+      </div>
+      {err && <p className="text-xs text-red-500 mb-3">{err}</p>}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <label className="space-y-1">
+          <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Code *</span>
+          <input className={inputCls} value={form.code} onChange={e => set("code", e.target.value)} placeholder="CH-001" />
+        </label>
+        <label className="space-y-1">
+          <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Nom *</span>
+          <input className={inputCls} value={form.nom} onChange={e => set("nom", e.target.value)} placeholder="Résidence Al Manar" />
+        </label>
+        <label className="space-y-1">
+          <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Client *</span>
+          <input className={inputCls} value={form.client} onChange={e => set("client", e.target.value)} placeholder="Groupe Al Omrane" />
+        </label>
+        <label className="space-y-1">
+          <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Ville</span>
+          <input className={inputCls} value={form.ville} onChange={e => set("ville", e.target.value)} placeholder="Casablanca" />
+        </label>
+        <label className="space-y-1 lg:col-span-2">
+          <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Adresse</span>
+          <input className={inputCls} value={form.adresse} onChange={e => set("adresse", e.target.value)} placeholder="Zone industrielle Ain Sebaa" />
+        </label>
+        <label className="space-y-1">
+          <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Date de début *</span>
+          <input type="date" className={inputCls} value={form.dateDebut} onChange={e => set("dateDebut", e.target.value)} />
+        </label>
+        <label className="space-y-1">
+          <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Date de fin prévue *</span>
+          <input type="date" className={inputCls} value={form.dateFin} onChange={e => set("dateFin", e.target.value)} />
+        </label>
+        <label className="space-y-1">
+          <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Budget HT (MAD) *</span>
+          <input type="number" min="0" step="0.01" className={inputCls} value={form.budgetHt || ""} onChange={e => set("budgetHt", Number(e.target.value))} placeholder="1500000" />
+        </label>
+        <label className="space-y-1">
+          <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Chef de projet</span>
+          <input className={inputCls} value={form.chefProjetNom} onChange={e => set("chefProjetNom", e.target.value)} placeholder="Nom du chef de projet" />
+        </label>
+        <label className="space-y-1">
+          <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Statut</span>
+          <select className={inputCls} value={form.statut} onChange={e => set("statut", e.target.value as ChantierStatut)}>
+            <option value="EN_PREPARATION">En préparation</option>
+            <option value="EN_COURS">En cours</option>
+            <option value="EN_PAUSE">En pause</option>
+            <option value="TERMINE">Terminé</option>
+            <option value="ANNULE">Annulé</option>
+          </select>
+        </label>
+      </div>
+
+      <div className="flex justify-end mt-5">
+        <button onClick={submit} disabled={submitting} className="px-6 py-2.5 text-sm font-semibold text-white bg-accent hover:bg-accent/90 rounded-lg disabled:opacity-50 transition-colors">
+          {submitting ? "Création…" : "Enregistrer"}
+        </button>
+      </div>
+    </Card>
   );
 }

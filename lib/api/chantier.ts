@@ -29,6 +29,20 @@ export interface ChantierDTO {
     jalons: JalonDTO[];
 }
 
+/** Shape sent when creating a chantier (POST /api/v1/chantiers). */
+export interface CreateChantierDTO {
+    code: string;
+    nom: string;
+    client: string;
+    adresse?: string;
+    ville?: string;
+    statut?: ChantierStatut;
+    dateDebut: string;
+    dateFin: string;
+    budgetHt: number;
+    chefProjetNom?: string;
+}
+
 /**
  * Fetch all chantiers (master data), used to populate the
  * "chantier" dropdown when creating a contract.
@@ -37,4 +51,13 @@ export interface ChantierDTO {
 export async function fetchChantiers(): Promise<ChantierDTO[]> {
     const { data } = await apiClient.get<ChantierDTO[]>("/chantiers");
     return data ?? [];
+}
+
+/**
+ * Create a new chantier (master data).
+ * POST /api/v1/chantiers
+ */
+export async function createChantier(payload: CreateChantierDTO): Promise<ChantierDTO> {
+    const { data } = await apiClient.post<ChantierDTO>("/chantiers", payload);
+    return data;
 }

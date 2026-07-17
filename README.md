@@ -77,8 +77,8 @@ controller) — the frontend checks exist for UX, not as the actual security bou
 |---|---|
 | `ADMIN` | everything |
 | `DIRECTEUR` | Suivi Chantiers, Trésorerie, Sous-traitance, Salaires, Annuaire, Comptabilité, Approbations |
-| `PM` | Achats, Suivi Chantiers, Stocks, Approbations |
-| `ACHAT` | Achats, Fournisseurs, Catalogue |
+| `PM` | Achats, Suivi Chantiers, Stocks, Sous-traitants, Approbations |
+| `ACHAT` | Achats, Fournisseurs, Catalogue, Sous-traitants |
 | `MAGASINIER` | Stocks |
 | `CHEF_CHANTIER` | Stocks, Suivi Chantiers, Trésorerie, Sous-traitance |
 | `FINANCE` | Trésorerie, Sous-traitance, Salaires, Paiements, Comptabilité |
@@ -90,69 +90,76 @@ their own role can open — see **Authorization** above.)
 
 ## Data dependencies: what has to exist before what
 
-This is the part that isn't obvious from clicking around: several forms have a
-required dropdown that's populated by *another* module's data, so filling them out in
-the wrong order just gives you an empty select box. Two pieces of reference data in
-particular sit underneath almost everything else, and **the frontend has no "create"
-form for either of them** — they have to already exist (seeded, or created directly
-against the backend) before most other pages are usable:
+Every piece of reference data in this app is enterable from *some* page — nothing
+requires going around the frontend to seed data directly against the backend. The
+rule that governs the order you use these pages in is simple: **a required dropdown
+is only as good as the data that already exists to fill it**. Two entities sit
+underneath almost everything else and are worth creating first:
 
-- **Chantiers** (construction sites) — `/dashboard/suivi-chantiers` is read-only in
-  this app. Yet `chantierId` is a required or optional field on: Achats, Caisses
-  (Trésorerie), Contrats de sous-traitance, Fiches de paie, Employés, and it's what
-  Stocks is filtered by. If no chantier exists yet, none of those forms have anything
-  to select.
-- **Sous-traitants** (the subcontractor directory) — there's no "add a subcontractor"
-  form anywhere; `lib/api/sousTraitants.ts` only exposes a fetch, not a create. A
-  Contrat de sous-traitance needs `sousTraitantId`, so a subcontractor has to be added
-  on the backend side first.
+- **Chantiers** (construction sites, `/dashboard/suivi-chantiers`) — `chantierId` is a
+  required or optional field on Achats, Caisses (Trésorerie), Contrats de
+  sous-traitance, Fiches de paie, Employés, and it's what Stocks is filtered by.
+- **Sous-traitants** (the subcontractor directory, its own page at
+  `/dashboard/sous-traitants`, separate from the Sous-traitance contracts page) — a
+  Contrat de sous-traitance needs `sousTraitantId`.
 
 Everything else builds on those two, roughly in this order:
 
-1. **Fournisseurs** (Fournisseurs page) — self-contained, no dependencies. Create these
-   whenever.
-2. **Catégorie d'article** — not a separate step: typing a new category name while
+1. **Chantiers** (Suivi Chantiers) and **Sous-traitants** (Sous-traitants) — no
+   dependencies, create these first. Note the role split: creating a Chantier needs
+   `ADMIN`/`DIRECTEUR`/`PM`/`CHEF_CHANTIER`; creating a Sous-traitant needs
+   `ADMIN`/`PM`/`ACHAT` — different enough that no single non-admin role can set up
+   both on their own.
+2. **Fournisseurs** (Fournisseurs page) — self-contained, no dependencies.
+3. **Catégorie d'article** — not a separate step: typing a new category name while
    creating an Article on Catalogue creates it inline.
-3. **Articles** (Catalogue) — needs a Catégorie (step 2, auto-created if new) and can
-   optionally tag `fournisseursPreferentiels` from step 1.
-4. **Achats** (Achats page) — needs a Fournisseur (1), a Chantier (pre-existing), and
-   at least one Article (3) per line item.
-5. **Employés** (Annuaire) — self-contained; `chantierActuelId` is an optional link to
-   a pre-existing Chantier.
-6. **Fiches de paie** (Salaires) — needs an Employé (5); `chantierId` is optional.
-7. **Caisses** (Trésorerie) — needs a pre-existing Chantier.
-8. **Transactions de caisse** — created from inside a Caisse's row (7); there's no
+4. **Articles** (Catalogue) — needs a Catégorie (step 3, auto-created if new) and can
+   optionally tag `fournisseursPreferentiels` from step 2.
+5. **Achats** (Achats page) — needs a Fournisseur (2), a Chantier (1), and at least one
+   Article (4) per line item.
+6. **Employés** (Annuaire) — self-contained; `chantierActuelId` is an optional link to
+   a Chantier (1).
+7. **Fiches de paie** (Salaires) — needs an Employé (6); `chantierId` is optional.
+8. **Caisses** (Trésorerie) — needs a Chantier (1).
+9. **Transactions de caisse** — created from inside a Caisse's row (8); there's no
    separate "pick a caisse" field, the caisse is the context you're already in.
-9. **Contrats de sous-traitance** (Sous-traitance) — needs a Sous-traitant
-   (pre-existing) and a Chantier (pre-existing).
-10. **Paiements** — needs a Contrat (9). The Sous-traitance page's own paiement form
+10. **Contrats de sous-traitance** (Sous-traitance) — needs a Sous-traitant (1) and a
+    Chantier (1).
+11. **Paiements** — needs a Contrat (10). The Sous-traitance page's own paiement form
     and the standalone Paiements page both write to the same data, just entered from
     two different screens.
 
-**Read-only / fully derived pages — nothing to enter:**
-- **Stocks** — pick a chantier, see its current inventory. Quantities come from the
-  backend; there's no way to adjust stock from this app.
-- **Comptabilité** — auto-generated from Achats, Fiches de paie, and Paiements. No
-  input at all.
+**Read-only / fully derived pages — nothing to enter, because there's nothing here
+that isn't computed from the data above:**
+- **Stocks** — pick a chantier, see its current inventory. There's no backend endpoint
+  to create or adjust a stock row at all (quantities come from elsewhere in the
+  system), so this page is correctly view-only rather than missing a form.
+- **Comptabilité** — auto-generated from Achats, Fiches de paie, and Paiements.
 - **Dashboard** (`/dashboard`) — aggregates every module above.
 
 ### Walking through it by role
 
-- **ACHAT** — first add Fournisseurs, then (if needed) a Catégorie + Article on
-  Catalogue, then create an Achat picking an existing Chantier + the Fournisseur +
-  Article(s) just created. If no chantier exists yet, ask an admin/PM first — Achats
-  can't be created without one.
+- **ACHAT** — add a Sous-traitant on Sous-traitants and/or a Fournisseur on
+  Fournisseurs whenever a new one needs onboarding, then (if needed) a Catégorie +
+  Article on Catalogue, then create an Achat picking an existing Chantier + the
+  Fournisseur + Article(s) just created. If no chantier exists yet, ask an admin/PM/
+  chef de chantier first — Achats can't be created without one.
+- **PM** — create a Chantier on Suivi Chantiers before anyone else can reference it,
+  and/or add a Sous-traitant on Sous-traitants. Otherwise mostly oversight on Achats
+  and Stocks (read-only).
 - **RH** — add an Employé on Annuaire (chantier link optional), then create their
   Fiche de paie on Salaires, picking that employee.
 - **FINANCE / CHEF_CHANTIER** — create a Caisse against an existing Chantier on
   Trésorerie, then log Transactions against it. Separately, create a Contrat de
   sous-traitance against an existing Chantier + Sous-traitant, then record Paiements
   against that contract (visible both on Sous-traitance and on the Paiements page).
-- **MAGASINIER / PM** — Stocks is read-only: pick a Chantier from the dropdown and
-  review its inventory. There's nothing to fill in.
-- **DIRECTEUR** — mostly a read/oversight role across Suivi Chantiers, Trésorerie,
-  Sous-traitance, Salaires, Annuaire, and Comptabilité; also handles Approbations
-  (accepting/rejecting pending `ADMIN`/`DIRECTEUR`/`RH`/`PM` sign-ups).
+  `CHEF_CHANTIER` can also create Chantiers directly.
+- **MAGASINIER** — Stocks is read-only: pick a Chantier from the dropdown and review
+  its inventory. There's nothing to fill in.
+- **DIRECTEUR** — creates Chantiers, otherwise mostly a read/oversight role across
+  Suivi Chantiers, Trésorerie, Sous-traitance, Salaires, Annuaire, and Comptabilité;
+  also handles Approbations (accepting/rejecting pending `ADMIN`/`DIRECTEUR`/`RH`/`PM`
+  sign-ups).
 
 ## How a typical page works
 
