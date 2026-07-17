@@ -13,6 +13,7 @@ export const SEARCH_INDEX: SearchItem[] = [
     { title: "Suivi Chantiers", href: "/dashboard/suivi-chantiers", keywords: ["sites", "projects", "chantier"] },
     { title: "Tresorerie et Caisse", href: "/dashboard/tresorerie", keywords: ["cash", "treasury", "caisse"] },
     { title: "Sous Traitance", href: "/dashboard/sous-traitance", keywords: ["subcontracting", "contractors"] },
+    { title: "Sous-traitants", href: "/dashboard/sous-traitants", keywords: ["subcontractors", "annuaire sous-traitants", "specialite"] },
     { title: "Salaires", href: "/dashboard/salaires", keywords: ["payroll", "wages", "salary"] },
     { title: "Catalogue Articles", href: "/dashboard/catalogue", keywords: ["catalog", "products", "articles"] },
     { title: "Fournisseurs", href: "/dashboard/fournisseurs", keywords: ["suppliers", "vendors"] },
