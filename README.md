@@ -1,40 +1,172 @@
-<<<<<<< HEAD
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Buildflow
 
-## Getting Started
+Buildflow is a construction-ERP web app for Moroccan BTP companies: purchasing, stock,
+site tracking, treasury, subcontracting, payroll, accounting, and a supplier/employee
+directory, all gated by role.
 
-First, run the development server:
+This README explains how the **frontend** (this repo) actually works — not just how to
+run it. The backend is a separate Spring Boot service; see `BACKEND_URL` below.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Tech stack
+
+- **Next.js 16** (App Router), React, TypeScript
+- **Tailwind CSS 4** for styling, `next-themes` for dark/light mode
+- **Axios** for HTTP, **Zod** for validation
+- **Chart.js** (via a thin wrapper) for the dashboard charts, **Recharts** for the landing-page trend chart
+- **Framer Motion** for page/modal transitions
+
+## The big picture
+
+```
+Browser
+  │  fetch("/api/...")            ← same-origin, cookie sent automatically
+  ▼
+Next.js server (this app)
+  │  API routes (app/api/**)      ← the only code allowed to hold the session token
+  │  fetch(`${BACKEND_URL}/api/v1/...`, { Authorization: Bearer <token> })
+  ▼
+Spring Boot backend                ← separate repo/service, source of truth
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The browser **never** talks to the backend directly and never sees the JWT. Every
+request goes through this Next.js app first. This is the one rule the rest of the
+architecture is built around.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Authentication
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `POST /api/auth/register` and `POST /api/auth/login` (`app/api/auth/*/route.ts`)
+  validate input with Zod, forward it to the backend, and on success store the JWT the
+  backend returns in an **httpOnly, secure, `sameSite=lax` cookie** (`lib/session.ts`).
+  JavaScript in the browser can never read this cookie — that's what stops XSS from
+  stealing it.
+- Every subsequent request either goes through the generic proxy
+  (`app/api/[...path]/route.ts` → `lib/api/proxy.ts`), which reads the cookie and
+  attaches `Authorization: Bearer <token>` before forwarding to the backend, or through
+  a dedicated route (`/api/auth/me`, `/api/auth/me/email`, `/api/auth/me/password`)
+  that does the same thing explicitly.
+- `lib/authContext.tsx` (`AuthProvider`) calls `GET /api/auth/me` once on mount and
+  exposes `{ user, loading, refetch }` via `useAuth()`. This is how every component
+  knows who's logged in and what role they have.
+- Some roles (`ADMIN`, `DIRECTEUR`, `RH`, `PM`) require approval before they can log
+  in — registering as one of these creates a `PENDING` account that an approver has to
+  accept on `/dashboard/approbations` first.
+- Rate limiting (`lib/rateLimit.ts`) is applied per-IP on login, register, and the
+  account-management endpoints. It's in-memory (per server process — fine at this
+  app's scale, would need a shared store like Redis if you ever run multiple
+  instances).
 
-## Learn More
+## Authorization (who can see what)
 
-To learn more about Next.js, take a look at the following resources:
+`lib/auth/permissions.ts` is a single map from route prefix → allowed roles
+(`ROUTE_PERMISSIONS`). It's the one source of truth, used in three places:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. **Sidebar** (`components/dashboard/SIdebar.tsx`) — filters nav items so a role never
+   even sees a link it can't use.
+2. **Dashboard overview** (`app/dashboard/DashboardClient.tsx`) — filters both which
+   domain summary cards render *and* which API calls get made, so a role that can't
+   see e.g. Salaires never fires that request in the first place.
+3. **Route guard** (`components/RequireRole.tsx`) — redirects away from a page the
+   current role isn't allowed on.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The backend enforces the same rules independently (`@PreAuthorize` on every
+controller) — the frontend checks exist for UX, not as the actual security boundary.
 
-## Deploy on Vercel
+## How a typical page works
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Every module (Achats, Fournisseurs, Trésorerie, …) follows the same shape:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-=======
-# Buildflow
->>>>>>> 2497fe2f4a3140b6860c681aa4db1ae68a51f5e9
+```
+app/dashboard/<module>/
+  page.tsx        — thin wrapper, sometimes owns a "create new X" form
+  <Module>Client.tsx  — "use client": fetches data, renders KPIs/charts/table
+```
+
+Inside a `*Client.tsx`:
+
+1. `useState` holds the raw data, `loading`, and `error`.
+2. `load()` (wrapped in `useCallback`) fetches from `lib/api/<module>.ts`, which calls
+   the shared `apiClient` (`lib/api/client.ts`, an Axios instance pointed at `/api`).
+   The response interceptor there automatically unwraps the backend's
+   `{ status, data, message }` envelope, so callers just get the payload.
+3. `useEffect(() => { load(); }, [load])` runs it on mount.
+4. Raw backend DTOs get mapped into the domain shapes defined in
+   `components/functions2.tsx`, then passed through `hydrate()` with that module's
+   `*HydrationConfig` — a set of small pure functions that turn a flat list of records
+   into KPI numbers, chart datasets (`DataPoint[]`, `StatusPoint[]`,
+   `MultiSeriesData`), and table rows in one pass.
+5. The hydrated data feeds shared chart components from `components/Functions.tsx`
+   (`KpiGrid`, `HorizontalBarChart`, `DonutChart`, `PieChart`, `StackedBarChart`,
+   `LineChart`) — all thin wrappers around Chart.js, loaded lazily via
+   `<ChartJsLoader>` since Chart.js comes from a CDN `<script>` rather than npm.
+6. Loading and error states are handled with the same pattern everywhere: a spinner
+   while `loading && data.length === 0`, a generic "something went wrong" card on
+   error (see **Error handling** below), otherwise the real content.
+
+The dashboard home page (`/dashboard`, `DashboardClient.tsx`) is the exception — it
+fetches a slice of *every* module's data in parallel (permission-gated, and each fetch
+independently wrapped so one failing domain never blanks the rest of the page) to
+build the 4 top KPI cards and one summary card per accessible module, each linking
+through to that module's full page.
+
+## Error handling (what users see vs. what gets logged)
+
+Nothing shown to the user ever includes a raw exception message, HTTP status text, or
+backend response body — every catch block resolves to a fixed, generic string like
+*"Une erreur est survenue. Veuillez réessayer."* This is deliberate: it's the one place
+across the whole app that's most likely to accidentally leak internal details.
+
+Real diagnostics still exist, just server-side only: `lib/logger.ts` writes structured
+JSON (`{ context, status, message }` — never tokens, passwords, or response bodies) to
+the Next.js server's own stdout, which only shows up in server/container logs, never
+in the browser console. Every API route and the proxy log this way on backend
+failures.
+
+## Settings (`/dashboard/settings`)
+
+Change email, change password, and delete account all go through dedicated API routes
+that require the current password, rate-limit attempts, and — for email changes —
+transparently rotate the session cookie, since the backend's JWT subject is the email
+address and the old token stops being valid the moment it changes.
+
+## Theming
+
+`app/layout.tsx` wraps the entire app (every route, from the very first server-rendered
+byte) in `next-themes`' `ThemeProvider`. It has to live in the *root* layout, not a
+nested one — mounting it deeper would mean its FOUC-prevention script only ships with
+the initial page load of whichever route happens to be entered first, and gets skipped
+entirely on client-side navigation into other routes.
+
+## Project layout
+
+```
+app/
+  (page)/            landing page (sign in / sign up modals)
+  dashboard/
+    <module>/         one folder per ERP module (see "How a typical page works")
+    layout.tsx         sidebar + header shell, wraps every /dashboard/* route
+    DashboardClient.tsx overview page — all modules, one screen
+  api/
+    auth/              login/register/me/logout/change-email/change-password
+    users/              pending/approve/reject (account approval workflow)
+    [...path]/          generic authenticated proxy to the backend
+components/
+  Functions.tsx        chart components + layout primitives (Card, Section, KpiGrid…)
+  functions2.tsx        domain types + hydration configs, one section per module
+  dashboard/            sidebar, header, profile dropdown
+lib/
+  api/                  apiClient (axios) + one thin fetch module per backend resource
+  auth/permissions.ts    the ROUTE_PERMISSIONS map described above
+  authContext.tsx         useAuth()
+  session.ts              the only file allowed to touch the session cookie
+  logger.ts                server-only structured error logging
+  validation/auth.ts       zod schemas shared by client-side and route-handler validation
+```
+
+## Getting started
+
+1. `npm install`
+2. Create `.env.local` with `BACKEND_URL=http://localhost:8080` (or wherever the
+   backend is running)
+3. `npm run dev` → http://localhost:3000
+
+Useful commands: `npm run build`, `npm run lint`, `npx tsc --noEmit`.
