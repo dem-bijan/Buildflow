@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { hydrate } from "@/components/functions2";
 import type { FichePaie, SalairesHydrated } from "@/components/functions2";
 import { salairesHydrationConfig } from "@/components/functions2";
@@ -16,6 +16,8 @@ export function GetStackBarchart() {
     });
   }, []);
 
+  const h = useMemo(() => hydrate<FichePaie, SalairesHydrated>(data, salairesHydrationConfig), [data]);
+
   if (data.length === 0) {
     return (
       <ChartCard title="Gains vs retenues par employé">
@@ -25,8 +27,6 @@ export function GetStackBarchart() {
       </ChartCard>
     );
   }
-
-  const h = hydrate<FichePaie, SalairesHydrated>(data, salairesHydrationConfig);
 
   return (
     <ChartCard title="Gains vs retenues par employé">

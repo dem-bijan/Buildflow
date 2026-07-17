@@ -8,7 +8,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             {/* Background */}
             <div className="fixed inset-0 bg-black -z-10">
 
-                {/* <LightPillar
+                <LightPillar
                     topColor="#FFFF8A"
                     bottomColor="#F97316"
                     intensity={1}
@@ -20,8 +20,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     pillarRotation={43}
                     interactive={false}
                     mixBlendMode="lighten"
-                    quality="medium"
-                /> */}
+                    quality="low"
+                />
 
 
             </div>

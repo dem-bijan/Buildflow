@@ -337,6 +337,35 @@ export function ChartCard({ title, children, className = "" }: { title: string; 
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// 4b. TOOLBAR BUTTONS — the "↻ Actualiser" / "+ Nouveau X" pair every
+// dashboard list page header uses. Keep this one definition in sync rather
+// than copy-pasting the className across pages.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function RefreshButton({ onClick, loading, label = "Actualiser" }: { onClick: () => void; loading?: boolean; label?: string }) {
+    return (
+        <button
+            onClick={onClick}
+            disabled={loading}
+            className="px-4 py-2 text-xs font-semibold text-accent border border-accent/30 rounded-lg hover:bg-accent/5 disabled:opacity-50 transition-colors"
+        >
+            {loading ? "…" : `↻ ${label}`}
+        </button>
+    );
+}
+
+export function PrimaryActionButton({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
+    return (
+        <button
+            onClick={onClick}
+            className="px-4 py-2 text-xs font-semibold text-white bg-accent hover:bg-accent/90 rounded-lg transition-colors"
+        >
+            {children}
+        </button>
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // 5. KPI GRID
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -578,112 +607,6 @@ export function DonutChart({ data }: { data: StatusPoint[] }) {
                 ))}
             </div>
         </>
-    );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 12. COMMANDES TABLE  (TableData)
-// ─────────────────────────────────────────────────────────────────────────────
-
-export function CommandesTable({ data }: { data: TableData }) {
-    const [open, setOpen] = useState<string | null>(null);
-
-    return (
-        <div className="overflow-x-auto -mx-4 sm:mx-0">
-            <table className="w-full text-sm border-collapse min-w-[640px]">
-                <thead>
-                    <tr className="border-b-2 border-edge-default dark:border-edge-default-dark">
-                        {["Réf.", "Fournisseur", "Chantier", "Date", "HT", "TVA", "TTC", "Statut"].map(h => (
-                            <th key={h} className="text-left px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-content-muted dark:text-content-muted-dark whitespace-nowrap">
-                                {h}
-                            </th>
-                        ))}
-                    </tr>
-                </thead>
-                <tbody>
-                    {data.rows.map(row => {
-                        const isOpen = open === row.id;
-                        return (
-                            <Fragment key={row.id}>
-                                <tr
-                                    onClick={() => setOpen(isOpen ? null : row.id)}
-                                    className={`border-b border-edge-subtle dark:border-edge-subtle-dark cursor-pointer transition-colors duration-150
-                                        ${isOpen
-                                            ? "bg-accent-50 dark:bg-accent-950/30"
-                                            : "hover:bg-surface-hover dark:hover:bg-surface-hover-dark"
-                                        }`}
-                                >
-                                    <td className="px-3 py-3 font-semibold text-accent whitespace-nowrap">{row.ref}</td>
-                                    <td className="px-3 py-3 text-content-secondary dark:text-content-secondary-dark whitespace-nowrap">{row.col1}</td>
-                                    <td className="px-3 py-3 text-content-secondary dark:text-content-secondary-dark max-w-[180px] truncate">{row.col2}</td>
-                                    <td className="px-3 py-3 text-content-muted dark:text-content-muted-dark whitespace-nowrap">{row.col3}</td>
-                                    <td className="px-3 py-3 tabular-nums text-content-secondary dark:text-content-secondary-dark">{fmt(row.ht)}</td>
-                                    <td className="px-3 py-3 tabular-nums text-content-secondary dark:text-content-secondary-dark">{fmt(row.tva)}</td>
-                                    <td className="px-3 py-3 tabular-nums font-bold text-content-primary dark:text-content-primary-dark">{fmt(row.ttc)}</td>
-                                    <td className="px-3 py-3">
-                                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${row.statusBg} ${row.statusText}`}>
-                                            <span className="w-1.5 h-1.5 rounded-full" style={{ background: row.statusDot }} />
-                                            {row.statusLabel}
-                                        </span>
-                                    </td>
-                                </tr>
-
-                                {isOpen && (
-                                    <tr className="bg-surface-raised dark:bg-surface-raised-dark">
-                                        <td colSpan={8} className="px-4 sm:px-8 py-4">
-                                            <p className="text-[11px] font-bold uppercase tracking-widest text-content-muted dark:text-content-muted-dark mb-3">
-                                                Lignes de commande
-                                            </p>
-                                            <div className="overflow-x-auto">
-                                                <table className="w-full text-xs border-collapse min-w-[420px]">
-                                                    <thead>
-                                                        <tr className="border-b border-edge-default dark:border-edge-default-dark">
-                                                            {["Code", "Désignation", "Qté", "Unité", "PU HT", "Total HT"].map(h => (
-                                                                <th key={h} className="text-left px-2 py-1.5 font-semibold text-content-muted dark:text-content-muted-dark">{h}</th>
-                                                            ))}
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {row.subRows.map(l => (
-                                                            <tr key={l.code} className="border-b border-edge-subtle dark:border-edge-subtle-dark">
-                                                                <td className="px-2 py-2 font-mono text-content-muted dark:text-content-muted-dark">{l.code}</td>
-                                                                <td className="px-2 py-2 text-content-secondary dark:text-content-secondary-dark">{l.designation}</td>
-                                                                <td className="px-2 py-2 tabular-nums text-content-secondary dark:text-content-secondary-dark">{l.quantite}</td>
-                                                                <td className="px-2 py-2 text-content-muted dark:text-content-muted-dark">{l.unite}</td>
-                                                                <td className="px-2 py-2 tabular-nums text-content-secondary dark:text-content-secondary-dark">{fmt(l.prixUnitaire)}</td>
-                                                                <td className="px-2 py-2 tabular-nums font-bold text-content-primary dark:text-content-primary-dark">{fmt(l.total)}</td>
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                            {row.footnotes.length > 0 && (
-                                                <p className="mt-3 text-[11px] text-content-muted dark:text-content-muted-dark flex flex-wrap gap-x-4 gap-y-1">
-                                                    {row.footnotes.map(f => (
-                                                        <span key={f.label}>
-                                                            {f.label} : <strong className="text-content-secondary dark:text-content-secondary-dark">{f.value}</strong>
-                                                        </span>
-                                                    ))}
-                                                </p>
-                                            )}
-                                        </td>
-                                    </tr>
-                                )}
-                            </Fragment>
-                        );
-                    })}
-                </tbody>
-                <tfoot>
-                    <tr className="border-t-2 border-edge-default dark:border-edge-default-dark bg-surface-raised dark:bg-surface-raised-dark">
-                        <td colSpan={4} className="px-3 py-3 font-bold text-content-secondary dark:text-content-secondary-dark text-xs uppercase tracking-wide">Total</td>
-                        <td className="px-3 py-3 font-bold tabular-nums text-content-primary dark:text-content-primary-dark">{fmt(data.totalHT)}</td>
-                        <td className="px-3 py-3 font-bold tabular-nums text-content-primary dark:text-content-primary-dark">{fmt(data.totalTVA)}</td>
-                        <td className="px-3 py-3 font-bold tabular-nums text-content-primary dark:text-content-primary-dark">{fmt(data.totalTTC)}</td>
-                        <td />
-                    </tr>
-                </tfoot>
-            </table>
-        </div>
     );
 }
 

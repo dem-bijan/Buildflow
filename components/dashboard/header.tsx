@@ -54,23 +54,6 @@ export default function Header() {
                 <SearchBar />
 
                 <ThemeToggle variant="hexagon" duration={400} fromCenter={true} />
-
-
-
-                {/* <div className="flex items-center gap-2 text-zinc-700">
-                    <UserRoundPen
-                        size={18}
-                        strokeWidth={2}
-                        className={isDark ? "text-white" : "text-black"}
-                    />
-                </div>
-
-                <Settings
-                    size={18}
-                    strokeWidth={2}
-                    className={`cursor-pointer transition-transform duration-200 hover:rotate-45 ${isDark ? "text-white" : "text-black"
-                        }`}
-                /> */}
                 <ProfileDropdown />
             </div>
         </div>

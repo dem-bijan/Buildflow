@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { fetchFournisseurs, createFournisseur, type FournisseurDTO, type CreateFournisseurDTO } from "@/lib/api/fournisseurs";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { fetchFournisseurs, createFournisseur, type CreateFournisseurDTO } from "@/lib/api/fournisseurs";
 import { hydrate } from "@/components/functions2";
 import type { Fournisseur, FournisseursHydrated } from "@/components/functions2";
 import { fournisseursHydrationConfig } from "@/components/functions2";
-import { fmt } from "@/components/functions2";
 import {
   ChartJsLoader,
   Section, Card, ChartCard,
@@ -13,7 +12,9 @@ import {
   PieChart,
   HorizontalBarChart,
   DonutChart,
-  StackedBarChart
+  StackedBarChart,
+  RefreshButton,
+  PrimaryActionButton,
 } from "@/components/Functions";
 
 export default function FournisseursClient() {
@@ -29,27 +30,15 @@ export default function FournisseursClient() {
     try {
       const data = await fetchFournisseurs();
       
-      let items: any[] = [];
-      if (Array.isArray(data)) {
-        items = data;
-      } else if (data && typeof data === 'object') {
-        if ('content' in data && Array.isArray((data as any).content)) {
-          items = (data as any).content;
-        } else if ('data' in data && Array.isArray((data as any).data)) {
-          items = (data as any).data;
-        }
-      }
-
-      const mapped: Fournisseur[] = items.map(f => ({
+      const mapped: Fournisseur[] = (data || []).map(f => ({
         ...f,
         totalAchatsAnnee: f.totalAchatsAnnee ?? 0,
         soldeImpaye: f.soldeImpaye ?? 0,
+        categorieArticles: f.categorieArticles ?? [],
       }));
       setFournisseurs(mapped);
-    } catch (err: unknown) {
-      console.error("[FournisseursClient] Error loading data:", err);
-      const msg = err instanceof Error ? err.message : "Erreur de connexion au serveur";
-      setError(msg);
+    } catch {
+      setError("Une erreur est survenue. Veuillez réessayer.");
     } finally {
       setLoading(false);
     }
@@ -65,6 +54,11 @@ export default function FournisseursClient() {
     )
     : fournisseurs;
 
+  const h = useMemo(
+    () => hydrate<Fournisseur, FournisseursHydrated>(fournisseurs, fournisseursHydrationConfig),
+    [fournisseurs]
+  );
+
   if (loading && fournisseurs.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
@@ -73,7 +67,7 @@ export default function FournisseursClient() {
           <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-accent animate-spin" />
         </div>
         <p className="text-sm text-content-muted dark:text-content-muted-dark animate-pulse">
-          Chargement des fournisseurs depuis le serveur…
+          Chargement…
         </p>
       </div>
     );
@@ -98,8 +92,6 @@ export default function FournisseursClient() {
     );
   }
 
-  // Hydrate data for the charts
-  const h = hydrate<Fournisseur, FournisseursHydrated>(fournisseurs, fournisseursHydrationConfig);
 
   return (
     <ChartJsLoader>
@@ -112,23 +104,14 @@ export default function FournisseursClient() {
               Fournisseurs
             </h1>
             <p className="text-sm text-content-muted dark:text-content-muted-dark mt-1">
-              {fournisseurs.length} fournisseurs enregistrés · Données temps réel
+              {fournisseurs.length} fournisseurs enregistrés
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => load()}
-              disabled={loading}
-              className="px-4 py-2 text-xs font-semibold text-accent border border-accent/30 rounded-lg hover:bg-accent/5 disabled:opacity-50 transition-colors"
-            >
-              {loading ? "…" : "↻ Actualiser"}
-            </button>
-            <button
-              onClick={() => setShowForm(!showForm)}
-              className="px-4 py-2 text-xs font-semibold text-white bg-accent hover:bg-accent/90 rounded-lg transition-colors"
-            >
+            <RefreshButton onClick={() => load()} loading={loading} />
+            <PrimaryActionButton onClick={() => setShowForm(!showForm)}>
               + Nouveau fournisseur
-            </button>
+            </PrimaryActionButton>
           </div>
         </div>
 
@@ -320,8 +303,8 @@ function CreateFournisseurForm({ onCreated, onCancel }: { onCreated: () => void;
     try {
       await createFournisseur(form);
       onCreated();
-    } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : "Erreur lors de la création");
+    } catch {
+      setErr("Erreur lors de la création");
     } finally {
       setSubmitting(false);
     }
@@ -360,7 +343,7 @@ function CreateFournisseurForm({ onCreated, onCancel }: { onCreated: () => void;
         </label>
         <label className="space-y-1">
           <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Email</span>
-          <input className={inputCls} value={form.email} onChange={e => set("email", e.target.value)} placeholder="contact@lafarge.ma" />
+          <input type="email" className={inputCls} value={form.email} onChange={e => set("email", e.target.value)} placeholder="contact@lafarge.ma" />
         </label>
         <label className="space-y-1 lg:col-span-3">
           <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Adresse complète</span>

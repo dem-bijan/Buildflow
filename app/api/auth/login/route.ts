@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { loginSchema } from "@/lib/validation/auth";
 import { setSessionCookie } from "@/lib/session";
 import { checkRateLimit } from "@/lib/rateLimit";
+import { logServerError } from "@/lib/logger";
 
 const BACKEND_URL = process.env.BACKEND_URL;
 
@@ -35,16 +36,15 @@ export async function POST(req: NextRequest) {
 
     let backendRes: Response;
     try {
-        console.log("BACKEND_URL =", BACKEND_URL);
-        console.log("Calling:", `${BACKEND_URL}/api/v1/auth/login`);
         backendRes = await fetch(`${BACKEND_URL}/api/v1/auth/login`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(parsed.data),
             cache: "no-store"
         });
-    } catch {
-        return NextResponse.json({ error: "Unable to reach the server" }, { status: 502 });
+    } catch (err) {
+        logServerError("auth.login.backend_unreachable", { message: err instanceof Error ? err.message : "unknown" });
+        return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 502 });
     }
 
     const data = await backendRes.json().catch(() => null);
@@ -57,7 +57,9 @@ export async function POST(req: NextRequest) {
                 { status: 403 }
             );
         }
-        console.error("Login failed", backendRes.status, data);
+        if (backendRes.status >= 500) {
+            logServerError("auth.login.backend_error", { status: backendRes.status });
+        }
         return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
     }
 
@@ -76,8 +78,8 @@ export async function POST(req: NextRequest) {
         res.headers.set("set-cookie", forwardedCookie);
         return res;
     } else {
-        console.error("Login succeeded but no token/cookie found in backend response", data);
-        return NextResponse.json({ error: "Unexpected server response" }, { status: 502 });
+        logServerError("auth.login.missing_token_in_response", { status: backendRes.status });
+        return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 502 });
     }
 
     return NextResponse.json({ user: data?.user ?? null }, { status: 200 });

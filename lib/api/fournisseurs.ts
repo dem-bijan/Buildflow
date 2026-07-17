@@ -1,4 +1,4 @@
-import apiClient from "./client";
+import apiClient, { toArrayPayload, unwrapApiPayload } from "./client";
 
 export interface FournisseurDTO {
   id: string;
@@ -35,18 +35,9 @@ export interface CreateFournisseurDTO {
   categorieArticles: string[];
 }
 
-/**
- * Fetch all fournisseurs.
- * GET /api/v1/fournisseurs
- */
 export async function fetchFournisseurs(): Promise<FournisseurDTO[]> {
-  const { data } = await apiClient.get<FournisseurDTO[]>("/fournisseurs");
-  // If the backend returns a page object, we extract the content. 
-  // We'll handle both arrays and Page<T> just in case.
-  if (data && typeof data === 'object' && 'content' in data) {
-    return (data as any).content;
-  }
-  return data;
+  const { data } = await apiClient.get<unknown>('/fournisseurs');
+  return toArrayPayload<FournisseurDTO>(data);
 }
 
 /**
@@ -54,8 +45,8 @@ export async function fetchFournisseurs(): Promise<FournisseurDTO[]> {
  * GET /api/v1/fournisseurs/{id}
  */
 export async function fetchFournisseurById(id: string): Promise<FournisseurDTO> {
-  const { data } = await apiClient.get<FournisseurDTO>(`/fournisseurs/${id}`);
-  return data;
+  const { data } = await apiClient.get<unknown>(`/fournisseurs/${id}`);
+  return unwrapApiPayload<FournisseurDTO>(data);
 }
 
 /**
@@ -63,6 +54,6 @@ export async function fetchFournisseurById(id: string): Promise<FournisseurDTO> 
  * POST /api/v1/fournisseurs
  */
 export async function createFournisseur(payload: CreateFournisseurDTO): Promise<FournisseurDTO> {
-  const { data } = await apiClient.post<FournisseurDTO>("/fournisseurs", payload);
-  return data;
+  const { data } = await apiClient.post<unknown>("/fournisseurs", payload);
+  return unwrapApiPayload<FournisseurDTO>(data);
 }

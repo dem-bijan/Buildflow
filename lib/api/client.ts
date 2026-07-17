@@ -1,5 +1,41 @@
 import axios from "axios";
 
+interface ApiEnvelope<T> {
+  status?: string;
+  data?: T;
+  message?: string | null;
+}
+
+function isApiEnvelope<T>(value: unknown): value is ApiEnvelope<T> {
+  return Boolean(
+    value &&
+    typeof value === "object" &&
+    "status" in (value as Record<string, unknown>) &&
+    "data" in (value as Record<string, unknown>)
+  );
+}
+
+export function unwrapApiPayload<T>(payload: unknown): T {
+  if (isApiEnvelope<T>(payload)) {
+    return (payload.data as T) ?? ({} as T);
+  }
+  return payload as T;
+}
+
+export function toArrayPayload<T>(payload: unknown): T[] {
+  const unwrapped = unwrapApiPayload<T | { content?: T[] }>(payload);
+  if (Array.isArray(unwrapped)) {
+    return unwrapped;
+  }
+
+  const maybePage = unwrapped as { content?: T[] } | null;
+  if (maybePage && typeof maybePage === "object" && Array.isArray(maybePage.content)) {
+    return maybePage.content;
+  }
+
+  return [];
+}
+
 /**
  * Axios instance for communicating with the Spring Boot backend.
  * Authentication is handled via HttpOnly cookies.
@@ -13,61 +49,17 @@ const apiClient = axios.create({
   timeout: 15_000,
 });
 
+
+
+// Single, consolidated response interceptor
 apiClient.interceptors.response.use(
   (response) => {
-    if (
-      response.data &&
-      typeof response.data === "object" &&
-      "status" in response.data &&
-      "data" in response.data
-    ) {
-      response.data = response.data.data;
+    if (response.data !== null && typeof response.data === "object") {
+      response.data = unwrapApiPayload(response.data);
     }
-
     return response;
   },
-  (error) => {
-    if (error.response) {
-      switch (error.response.status) {
-        case 401:
-          console.warn("[API] Unauthorized");
-          break;
-        case 403:
-          console.warn("[API] Forbidden");
-          break;
-        case 500:
-          console.error("[API] Internal Server Error");
-          break;
-      }
-    }
-
-    return Promise.reject(error);
-  }
-);
-
-
-// Response interceptor
-apiClient.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response) {
-      switch (error.response.status) {
-        case 401:
-          console.warn("[API] Unauthorized");
-          break;
-
-        case 403:
-          console.warn("[API] Forbidden");
-          break;
-
-        case 500:
-          console.error("[API] Internal Server Error");
-          break;
-      }
-    }
-
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
 export default apiClient;

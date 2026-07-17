@@ -1,4 +1,4 @@
-import apiClient from "./client";
+import apiClient, { toArrayPayload, unwrapApiPayload } from "./client";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Backend DTO shape returned by GET /api/v1/articles and GET /api/v1/articles/{id}
@@ -19,7 +19,19 @@ export interface ArticleDTO {
   createdAt?: string;
   updatedAt?: string;
 }
+export interface ArticleForm {
+  code: string;
+  designation: string;
+  description?: string;
 
+  // The user types the category name
+  categorie: string;
+
+  unite: string;
+  prixAchatRef: number;
+  tvaRate: number;
+  fournisseursPreferentiels: string[];
+}
 /** Shape sent when creating / updating an article (POST /api/v1/articles). */
 export interface CreateArticleDTO {
   code: string;
@@ -56,10 +68,20 @@ export async function fetchArticles(
   size = 50,
   sort = "designation,asc"
 ): Promise<PagedResponse<ArticleDTO>> {
-  const { data } = await apiClient.get<PagedResponse<ArticleDTO>>("/articles", {
+  const { data } = await apiClient.get<unknown>("/articles", {
     params: { page, size, sort },
   });
-  return data;
+  const payload = unwrapApiPayload<PagedResponse<ArticleDTO> | { content?: ArticleDTO[] }>(data);
+  const maybePage = payload as Partial<PagedResponse<ArticleDTO>> | null;
+  return {
+    content: Array.isArray(maybePage?.content) ? maybePage.content : toArrayPayload<ArticleDTO>(payload),
+    totalElements: maybePage?.totalElements ?? 0,
+    totalPages: maybePage?.totalPages ?? 0,
+    number: maybePage?.number ?? 0,
+    size: maybePage?.size ?? 0,
+    first: maybePage?.first ?? true,
+    last: maybePage?.last ?? true,
+  };
 }
 
 /**
@@ -67,8 +89,8 @@ export async function fetchArticles(
  * GET /api/v1/articles/{id}
  */
 export async function fetchArticleById(id: string): Promise<ArticleDTO> {
-  const { data } = await apiClient.get<ArticleDTO>(`/articles/${id}`);
-  return data;
+  const { data } = await apiClient.get<unknown>(`/articles/${id}`);
+  return unwrapApiPayload<ArticleDTO>(data);
 }
 
 /**
@@ -78,6 +100,6 @@ export async function fetchArticleById(id: string): Promise<ArticleDTO> {
 export async function createArticle(
   payload: CreateArticleDTO
 ): Promise<ArticleDTO> {
-  const { data } = await apiClient.post<ArticleDTO>("/articles", payload);
-  return data;
+  const { data } = await apiClient.post<unknown>("/articles", payload);
+  return unwrapApiPayload<ArticleDTO>(data);
 }

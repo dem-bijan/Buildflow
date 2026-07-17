@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Roboto_Mono, Marck_Script } from "next/font/google";
+import Providers from "@/lib/provider";
 import "./globals.css";
 import "./globalicons.css";
 
@@ -21,7 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       suppressHydrationWarning
     >
       <body className="min-h-screen relative overflow-hidden">
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

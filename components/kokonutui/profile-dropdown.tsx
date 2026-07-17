@@ -1,7 +1,6 @@
 "use client";
 
 import { FileText, LogOut, Settings, User } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import * as React from "react";
 import { useRouter } from "next/navigation";
@@ -16,14 +15,6 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/authContext";
 
-interface Profile {
-  name: string;
-  email: string;
-  avatar: string;
-  subscription?: string;
-  model?: string;
-}
-
 interface MenuItem {
   label: string;
   value?: string;
@@ -32,22 +23,19 @@ interface MenuItem {
   external?: boolean;
 }
 
-const SAMPLE_PROFILE_DATA: Profile = {
-  name: "Mohamed Najib",
-  email: "eugene@kokonutui.com",
-  avatar:
-    "https://ferf1mheo22r9ira.public.blob.vercel-storage.com/profile-mjss82WnWBRO86MHHGxvJ2TVZuyrDv.jpeg",
-  subscription: "PRO",
-  model: "Gemini 2.0 Flash",
-};
+function getInitials(email?: string): string {
+  if (!email) return "?";
+  const local = email.split("@")[0];
+  const parts = local.split(/[._-]/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return local.slice(0, 2).toUpperCase();
+}
 
 interface ProfileDropdownProps extends React.HTMLAttributes<HTMLDivElement> {
-  data?: Profile;
   showTopbar?: boolean;
 }
 
 export default function ProfileDropdown({
-  data = SAMPLE_PROFILE_DATA,
   className,
   ...props
 }: ProfileDropdownProps) {
@@ -63,7 +51,7 @@ export default function ProfileDropdown({
     },
     {
       label: "Settings",
-      href: "#",
+      href: "/dashboard/settings",
       icon: <Settings className="h-4 w-4" />,
     },
     {
@@ -80,7 +68,7 @@ export default function ProfileDropdown({
       await new Promise((r) => setTimeout(r, 0));
       window.location.href = "/";
     }
-    catch (e) {
+    catch {
       alert("Logout failed");
     }
 
@@ -105,14 +93,10 @@ export default function ProfileDropdown({
               </div>
               <div className="relative">
                 <div className="h-10 w-10 rounded-full bg-linear-to-br from-purple-500 via-pink-500 to-orange-400 p-0.5">
-                  <div className="h-full w-full overflow-hidden rounded-full bg-white dark:bg-zinc-900">
-                    <Image
-                      alt={data.name}
-                      className="h-full w-full rounded-full object-cover"
-                      height={36}
-                      src={data.avatar}
-                      width={36}
-                    />
+                  <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-white dark:bg-zinc-900">
+                    <span className="text-xs font-bold text-zinc-700 dark:text-zinc-200">
+                      {getInitials(user?.email)}
+                    </span>
                   </div>
                 </div>
               </div>

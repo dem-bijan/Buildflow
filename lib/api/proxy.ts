@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionCookie } from "@/lib/session";
+import { logServerError } from "@/lib/logger";
 
 const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8080";
 
@@ -19,7 +20,7 @@ export async function proxyToBackend(req: NextRequest, backendPath: string) {
     if (req.method !== "GET" && req.method !== "HEAD") {
         try {
             body = await req.clone().text();
-        } catch (e) {
+        } catch {
             // No body
         }
     }
@@ -39,9 +40,13 @@ export async function proxyToBackend(req: NextRequest, backendPath: string) {
         if (text) {
             try {
                 responseBody = JSON.parse(text);
-            } catch (e) {
+            } catch {
                 responseBody = text;
             }
+        }
+
+        if (response.status >= 500) {
+            logServerError("proxy.backend_error", { path: backendPath, method: req.method, status: response.status });
         }
 
         // Return the response preserving status code
@@ -55,10 +60,14 @@ export async function proxyToBackend(req: NextRequest, backendPath: string) {
         }
 
         return NextResponse.json(responseBody, { status: response.status });
-    } catch (error: any) {
-        console.error(`[Proxy] Error communicating with backend for ${backendPath}:`, error.message);
+    } catch (err) {
+        logServerError("proxy.backend_unreachable", {
+            path: backendPath,
+            method: req.method,
+            message: err instanceof Error ? err.message : "unknown",
+        });
         return NextResponse.json(
-            { error: "Internal server error communicating with backend" },
+            { error: "Something went wrong. Please try again." },
             { status: 502 }
         );
     }

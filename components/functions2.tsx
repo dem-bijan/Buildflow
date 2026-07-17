@@ -126,25 +126,69 @@ export type RessourceType = "OUVRIER" | "CHEF_EQUIPE" | "CONDUCTEUR_TRAVAUX" | "
 export interface Ressource { id: string; nom: string; type: RessourceType; specialite: string; telephone?: string; }
 export interface Affectation { id: string; ressourceId: string; ressourceNom: string; ressourceType: RessourceType; chantierId: string; chantierNom: string; dateDebut: string; dateFin: string; tauxOccupation: number; notes?: string; }
 
-export type ContratSTStatut = "EN_COURS" | "TERMINE" | "SUSPENDU" | "RESILIE";
-export type PaiementSTStatut = "EN_ATTENTE" | "PAYE" | "EN_RETARD";
+export type ContratSTStatut = "EN_COURS" | "TERMINE" | "RESILIE";
+export type PaiementSTStatut =
+    | "EN_ATTENTE"
+    | "VALIDE"
+    | "PAYE"
+    | "EN_RETARD"
+    | "PARTIELLEMENT_PAYE";
+export interface PaiementST { id: string; reference: string; montant: number; motif: string; statut: PaiementSTStatut; datePaiement: string | null; }
 export interface EcheanceST { id: string; montant: number; datePrevue: string; datePaiement?: string; statut: PaiementSTStatut; referenceVirement?: string; }
-export interface ContratSousTraitance { id: string; ref: string; soustraitantNom: string; soustraitantIce: string; chantierId: string; chantierNom: string; objet: string; dateDebut: string; dateFin: string; montantHT: number; tva: number; montantTTC: number; montantPaye: number; statut: ContratSTStatut; echeances: EcheanceST[]; }
+export interface ContratSousTraitance {
+    id: string; reference: string; sousTraitantId: string; sousTraitantRaisonSociale: string; chantierId: string; chantierNom: string; objet: string; montantHt: number; tva: number; montantTtc: number; montantPaye: number; resteAPayer: number; dateDebut: string; dateFin: string; statut: ContratSTStatut;
+}
+export interface ContratSousTraitanceWithPaiements extends ContratSousTraitance {
+    paiements: PaiementST[];
+}
 
-export type StatutSalaire = "EN_ATTENTE" | "VALIDE" | "PAYE";
+export type StatutSalaire = "BROUILLON" | "VALIDE" | "PAYEE";
 export interface LigneSalaire { libelle: string; montant: number; type: "GAIN" | "RETENUE"; }
-export interface FichePaie { id: string; employe: { id: string; matricule: string; nom: string; prenom: string; poste: string; departement: string; dateEmbauche: string; rib: string; banque: string; }; periode: string; salaireBrut: number; lignes: LigneSalaire[]; totalGains: number; totalRetenues: number; salaireNet: number; statut: StatutSalaire; datePaiement?: string; referenceVirement?: string; }
+export interface FichePaie {
+    id: string;
 
-export type TransactionType = "ENCAISSEMENT" | "DECAISSEMENT";
+    reference: string;
+
+    employeId: string;
+    employeNomComplet: string;
+    employeMatricule: string;
+
+    chantierId: string;
+    chantierNom: string;
+
+    periode: string;
+
+    joursTravailles: number;
+
+    salaireBase: number;
+    heuresSupplementaires?: number;
+    montantHeuresSupp?: number;
+
+    primeTransport?: number;
+    primePanier?: number;
+    autresPrimes?: number;
+
+    avance?: number;
+    deductionsCnss?: number;
+    deductionsIr?: number;
+
+    netAPayer: number;
+
+    statut: StatutSalaire;
+}
+
 export type TransactionCategorie = "PAIEMENT_FOURNISSEUR" | "PAIEMENT_SOUSTRAIT" | "PAIEMENT_SALAIRE" | "ENCAISSEMENT_CLIENT" | "FRAIS_GENERAUX" | "DEPOT_BANQUE" | "RETRAIT_BANQUE" | "AUTRE";
-export interface Caisse { id: string; libelle: string; type: "BANQUE" | "ESPECES"; solde: number; devise: "MAD"; }
-export interface Transaction { id: string; date: string; type: TransactionType; categorie: TransactionCategorie; montant: number; libelle: string; caisseId: string; caisseLibelle: string; referenceDoc?: string; tiers?: string; saisiePar: string; }
+export type TypeTransaction = "CREDIT" | "DEBIT";
+export interface Transaction { id: string; typeTransaction: TypeTransaction; montant: number; motif: string; referenceDocument?: string; createdAt: string; caisseId: string; caisseLibelle: string; }
+export interface Caisse { id: string; code: string; libelle: string; chantierId: string; chantierNom: string; solde: number; seuilMinimum: number; enAlerte: boolean; }
 
-export type PaiementStatut = "EN_ATTENTE" | "PAYE" | "EN_RETARD" | "PARTIELLEMENT_PAYE";
+
+
+export type PaiementStatut = "EN_ATTENTE" | "VALIDE" | "PAYE" | "EN_RETARD" | "PARTIELLEMENT_PAYE";
 export type PaiementType = "FOURNISSEUR" | "SOUS_TRAITANT" | "SALAIRE" | "AUTRE";
 export interface Paiement { id: string; ref: string; type: PaiementType; tiers: string; chantierId?: string; chantierNom?: string; referenceDoc: string; montantTotal: number; montantPaye: number; montantRestant: number; dateEcheance: string; datePaiement?: string; statut: PaiementStatut; modeReglement?: "VIREMENT" | "CHEQUE" | "ESPECES"; referenceVirement?: string; notes?: string; }
 
-export type JournalCode = "ACH" | "VTE" | "BNQ" | "CAI" | "OD" | "SAL";
+export type JournalCode = "ACH" | "VTE" | "BNQ" | "CAI" | "OD" | "SAL" | "STR";
 export interface LigneEcriture { id: string; compteNum: string; compteLibelle: string; debit: number; credit: number; }
 export interface EcritureComptable { id: string; date: string; journal: JournalCode; pieceRef: string; libelle: string; lignes: LigneEcriture[]; montant: number; saisiePar: string; }
 export interface CompteResultat { categorie: string; libelle: string; montantN: number; montantN1: number; }
@@ -229,7 +273,7 @@ export const achatsHydrationConfig = {
             badgeText: ACHAT_STATUS_META[s].text,
         })),
     articles: (achats: Achat[]): DataPoint[] => {
-        const map = achats.flatMap(a => a.lignes).reduce<Record<string, number>>((acc, l) => {
+        const map = achats.flatMap(a => a.lignes ?? []).reduce<Record<string, number>>((acc, l) => {
             const k = l.designation.length > 26 ? l.designation.slice(0, 24) + "…" : l.designation;
             acc[k] = (acc[k] ?? 0) + l.total; return acc;
         }, {});
@@ -299,10 +343,9 @@ export const fournisseursHydrationConfig = {
         fournisseurs
             .filter(f => f.soldeImpaye > 0)
             .sort((a, b) => b.soldeImpaye - a.soldeImpaye)
-            .map((f, i) => ({ label: f.raisonSociale, value: f.soldeImpaye, color: "#e34948" })),
+            .map(f => ({ label: f.raisonSociale, value: f.soldeImpaye, color: "#e34948" })),
 
     partMarche: (fournisseurs: Fournisseur[]): DataPoint[] => {
-        const total = fournisseurs.reduce((s, f) => s + f.totalAchatsAnnee, 0);
         return [...fournisseurs]
             .filter(f => f.totalAchatsAnnee > 0)
             .sort((a, b) => b.totalAchatsAnnee - a.totalAchatsAnnee)
@@ -318,7 +361,7 @@ export const fournisseursHydrationConfig = {
         })),
     categoriesCount: (fournisseurs: Fournisseur[]): DataPoint[] => {
         const map: Record<string, number> = {};
-        fournisseurs.forEach(f => f.categorieArticles.forEach(c => { map[c] = (map[c] ?? 0) + 1; }));
+        fournisseurs.forEach(f => (f.categorieArticles ?? []).forEach(c => { map[c] = (map[c] ?? 0) + 1; }));
         return Object.entries(map).sort((a, b) => b[1] - a[1]).map(([label, value], i) => ({ label, value, color: color(i) }));
     },
     topFournisseurs: (fournisseurs: Fournisseur[]): MultiSeriesData => {
@@ -351,7 +394,7 @@ export const stocksHydrationConfig = {
         const valeurTotale = stocks.reduce((s, a) => s + a.valeurStock, 0);
         const sousSeuil = stocks.filter(a => a.quantiteDisponible <= a.seuilAlerte);
         const auDessus = stocks.length - sousSeuil.length;
-        const totalMvts = stocks.flatMap(a => a.mouvements).length;
+        const totalMvts = stocks.flatMap(a => a.mouvements ?? []).length;
         return [
             { label: "Articles en stock", value: `${stocks.length}`, sub: `${auDessus} au-dessus du seuil` },
             { label: "Valeur totale", value: fmt(valeurTotale), sub: "MAD (prix moyen)" },
@@ -368,9 +411,9 @@ export const stocksHydrationConfig = {
             .map(s => ({ label: s.designation.length > 28 ? s.designation.slice(0, 26) + "…" : s.designation, ecart: s.seuilAlerte - s.quantiteDisponible }))
             .filter(s => s.ecart > 0)
             .sort((a, b) => b.ecart - a.ecart)
-            .map((s, i) => ({ label: s.label, value: s.ecart, color: "#e34948" })),
+            .map(s => ({ label: s.label, value: s.ecart, color: "#e34948" })),
     mouvementsParType: (stocks: StockArticle[]): StatusPoint[] => {
-        const mvts = stocks.flatMap(s => s.mouvements);
+        const mvts = stocks.flatMap(s => s.mouvements ?? []);
         return [
             { label: "Entrées", value: mvts.filter(m => m.type === "ENTREE").length, color: "#16a34a", badgeBg: "bg-green-100 dark:bg-green-900/30", badgeText: "text-green-700 dark:text-green-400" },
             { label: "Sorties", value: mvts.filter(m => m.type === "SORTIE").length, color: "#e34948", badgeBg: "bg-red-100 dark:bg-red-900/30", badgeText: "text-red-700 dark:text-red-400" },
@@ -436,7 +479,7 @@ export const catalogueHydrationConfig = {
             .map((a, i) => ({ label: a.designation.length > 28 ? a.designation.slice(0, 26) + "…" : a.designation, value: a.prixAchatRef, color: color(i) })),
     fournisseursPreferentiels: (articles: Article[]): DataPoint[] => {
         const map: Record<string, number> = {};
-        articles.forEach(a => a.fournisseursPreferentiels.forEach(f => { map[f] = (map[f] ?? 0) + 1; }));
+        articles.forEach(a => (a.fournisseursPreferentiels ?? []).forEach(f => { map[f] = (map[f] ?? 0) + 1; }));
         return Object.entries(map).sort((a, b) => b[1] - a[1]).map(([label, value], i) => ({ label, value, color: color(i) }));
     },
 };
@@ -493,7 +536,8 @@ export const chantiersHydrationConfig = {
             .map(s => ({ label: CHANTIER_STATUS_META[s].label, value: chantiers.filter(c => c.statut === s).length, color: CHANTIER_STATUS_META[s].dot, badgeBg: CHANTIER_STATUS_META[s].bg, badgeText: CHANTIER_STATUS_META[s].text }))
             .filter(d => d.value > 0),
     jalonsSummary: (chantiers: Chantier[]): StatusPoint[] => {
-        const all = chantiers.flatMap(c => c.jalons);
+        const all = chantiers.flatMap(c => c.jalons ?? []);
+
         return [
             { label: "Terminé", value: all.filter(j => j.statut === "TERMINE").length, color: "#16a34a", badgeBg: "bg-green-100 dark:bg-green-900/30", badgeText: "text-green-700 dark:text-green-400" },
             { label: "En cours", value: all.filter(j => j.statut === "EN_COURS").length, color: "#2563eb", badgeBg: "bg-blue-100 dark:bg-blue-900/30", badgeText: "text-blue-700 dark:text-blue-400" },
@@ -564,7 +608,7 @@ export const affectationHydrationConfig = {
         const types: RessourceType[] = ["OUVRIER", "CHEF_EQUIPE", "CONDUCTEUR_TRAVAUX", "ENGIN"];
         return {
             labels: chantiers.map(c => c.length > 18 ? c.slice(0, 16) + "…" : c),
-            series: types.map((t, i) => ({
+            series: types.map(t => ({
                 label: RESSOURCE_TYPE_META[t].label,
                 data: chantiers.map(c => affectations.filter(a => a.chantierNom === c && a.ressourceType === t).length),
                 color: RESSOURCE_TYPE_META[t].dot,
@@ -578,25 +622,25 @@ export const affectationHydrationConfig = {
 // ⑦ SOUS-TRAITANCE
 // ─────────────────────────────────────────────────────────────────────────────
 
+
 export interface SousTraitanceHydrated {
     kpis: KpiItem[];
     progress: ProgressData;                 // global paiement ST
     montantsParST: DataPoint[];             // horizontal bar — montant TTC par sous-traitant
     payeVsRestant: MultiSeriesData;         // grouped bar — payé vs restant par contrat
     statutsContrats: StatusPoint[];         // donut
-    echeancesParStatut: StatusPoint[];      // donut — statuts d'échéances
+    echeancesParStatut: StatusPoint[];      // donut — statuts des paiements
 }
 
 const CST_STATUS_META: Record<ContratSTStatut, { label: string; bg: string; text: string; dot: string }> = {
     EN_COURS: { label: "En cours", bg: "bg-blue-100 dark:bg-blue-900/30", text: "text-blue-700 dark:text-blue-400", dot: "#2563eb" },
     TERMINE: { label: "Terminé", bg: "bg-green-100 dark:bg-green-900/30", text: "text-green-700 dark:text-green-400", dot: "#16a34a" },
-    SUSPENDU: { label: "Suspendu", bg: "bg-amber-100 dark:bg-amber-900/30", text: "text-amber-700 dark:text-amber-400", dot: "#d97706" },
     RESILIE: { label: "Résilié", bg: "bg-red-100 dark:bg-red-900/30", text: "text-red-700 dark:text-red-400", dot: "#dc2626" },
 };
 
 export const sousTraitanceHydrationConfig = {
     kpis: (contrats: ContratSousTraitance[]): KpiItem[] => {
-        const totalTTC = contrats.reduce((s, c) => s + c.montantTTC, 0);
+        const totalTTC = contrats.reduce((s, c) => s + c.montantTtc, 0);
         const totalPaye = contrats.reduce((s, c) => s + c.montantPaye, 0);
         const restant = totalTTC - totalPaye;
         const enCours = contrats.filter(c => c.statut === "EN_COURS").length;
@@ -609,32 +653,32 @@ export const sousTraitanceHydrationConfig = {
         ];
     },
     progress: (contrats: ContratSousTraitance[]): ProgressData => {
-        const totalTTC = contrats.reduce((s, c) => s + c.montantTTC, 0);
+        const totalTTC = contrats.reduce((s, c) => s + c.montantTtc, 0);
         const totalPaye = contrats.reduce((s, c) => s + c.montantPaye, 0);
         const paidPct = totalTTC > 0 ? Math.round((totalPaye / totalTTC) * 100) : 0;
         return { paidLabel: `Payé : ${fmt(totalPaye)}`, pendingLabel: `Restant : ${fmt(totalTTC - totalPaye)}`, paidPct, footerLabel: `${paidPct}% des engagements réglés` };
     },
     montantsParST: (contrats: ContratSousTraitance[]): DataPoint[] => {
-        const map = contrats.reduce<Record<string, number>>((acc, c) => { acc[c.soustraitantNom] = (acc[c.soustraitantNom] ?? 0) + c.montantTTC; return acc; }, {});
+        const map = contrats.reduce<Record<string, number>>((acc, c) => { acc[c.sousTraitantRaisonSociale] = (acc[c.sousTraitantRaisonSociale] ?? 0) + c.montantTtc; return acc; }, {});
         return Object.entries(map).sort((a, b) => b[1] - a[1]).map(([label, value], i) => ({ label, value, color: color(i) }));
     },
     payeVsRestant: (contrats: ContratSousTraitance[]): MultiSeriesData => ({
-        labels: contrats.map(c => c.ref),
+        labels: contrats.map(c => c.reference),
         series: [
             { label: "Payé", data: contrats.map(c => c.montantPaye), color: "#1baf7a", fill: false },
-            { label: "Restant", data: contrats.map(c => c.montantTTC - c.montantPaye), color: "#e34948", fill: false },
+            { label: "Restant", data: contrats.map(c => c.resteAPayer), color: "#e34948", fill: false },
         ],
     }),
     statutsContrats: (contrats: ContratSousTraitance[]): StatusPoint[] =>
-        (["EN_COURS", "TERMINE", "SUSPENDU", "RESILIE"] as ContratSTStatut[])
+        (["EN_COURS", "TERMINE", "RESILIE"] as ContratSTStatut[])
             .map(s => ({ label: CST_STATUS_META[s].label, value: contrats.filter(c => c.statut === s).length, color: CST_STATUS_META[s].dot, badgeBg: CST_STATUS_META[s].bg, badgeText: CST_STATUS_META[s].text }))
             .filter(d => d.value > 0),
-    echeancesParStatut: (contrats: ContratSousTraitance[]): StatusPoint[] => {
-        const all = contrats.flatMap(c => c.echeances);
+    echeancesParStatut: (contrats: ContratSousTraitanceWithPaiements[]): StatusPoint[] => {
+        const all = contrats.flatMap(c => c.paiements ?? []);
         return [
-            { label: "Payé", value: all.filter(e => e.statut === "PAYE").length, color: "#16a34a", badgeBg: "bg-green-100 dark:bg-green-900/30", badgeText: "text-green-700 dark:text-green-400" },
-            { label: "En attente", value: all.filter(e => e.statut === "EN_ATTENTE").length, color: "#6b7280", badgeBg: "bg-gray-100 dark:bg-gray-800", badgeText: "text-gray-600 dark:text-gray-400" },
-            { label: "En retard", value: all.filter(e => e.statut === "EN_RETARD").length, color: "#dc2626", badgeBg: "bg-red-100 dark:bg-red-900/30", badgeText: "text-red-700 dark:text-red-400" },
+            { label: "Payé", value: all.filter(p => p.statut === "PAYE").length, color: "#16a34a", badgeBg: "bg-green-100 dark:bg-green-900/30", badgeText: "text-green-700 dark:text-green-400" },
+            { label: "Validé", value: all.filter(p => p.statut === "VALIDE").length, color: "#2563eb", badgeBg: "bg-blue-100 dark:bg-blue-900/30", badgeText: "text-blue-700 dark:text-blue-400" },
+            { label: "En attente", value: all.filter(p => p.statut === "EN_ATTENTE").length, color: "#6b7280", badgeBg: "bg-gray-100 dark:bg-gray-800", badgeText: "text-gray-600 dark:text-gray-400" },
         ].filter(d => d.value > 0);
     },
 };
@@ -652,56 +696,274 @@ export interface SalairesHydrated {
     topSalaires: DataPoint[];             // horizontal bar — top 6 salaires nets
 }
 
-const SALAIRE_STATUS_META: Record<StatutSalaire, { label: string; bg: string; text: string; dot: string }> = {
-    PAYE: { label: "Payé", bg: "bg-green-100 dark:bg-green-900/30", text: "text-green-700 dark:text-green-400", dot: "#16a34a" },
-    VALIDE: { label: "Validé", bg: "bg-blue-100 dark:bg-blue-900/30", text: "text-blue-700 dark:text-blue-400", dot: "#2563eb" },
-    EN_ATTENTE: { label: "En attente", bg: "bg-amber-100 dark:bg-amber-900/30", text: "text-amber-700 dark:text-amber-400", dot: "#d97706" },
+export const salairesHydrationConfig = {
+
+    kpis: (fiches: FichePaie[]): KpiItem[] => {
+
+        const masseBase = fiches.reduce(
+            (s, f) => s + f.salaireBase,
+            0
+        );
+
+        const masseNet = fiches.reduce(
+            (s, f) => s + f.netAPayer,
+            0
+        );
+
+        const payees =
+            fiches.filter(
+                f => f.statut === "PAYEE"
+            ).length;
+
+
+        const retenues =
+            fiches.reduce(
+                (s, f) =>
+                    s +
+                    (f.deductionsCnss ?? 0) +
+                    (f.deductionsIr ?? 0),
+                0
+            );
+
+
+        return [
+
+            {
+                label: "Employés",
+                value: `${fiches.length}`,
+                sub: `${payees} fiches payées`
+            },
+
+            {
+                label: "Masse brute",
+                value: fmt(masseBase),
+                sub: "MAD"
+            },
+
+            {
+                label: "Masse nette",
+                value: fmt(masseNet),
+                sub: "à virer"
+            },
+
+            {
+                label: "Retenues",
+                value: fmt(retenues),
+                sub: "CNSS + IR"
+            }
+
+        ];
+
+    },
+
+
+
+    progress: (fiches: FichePaie[]): ProgressData => {
+
+        const total = fiches.length;
+
+        const payees =
+            fiches.filter(
+                f => f.statut === "PAYEE"
+            ).length;
+
+
+        const pct =
+            total
+                ? Math.round(payees / total * 100)
+                : 0;
+
+
+        const montantPaye =
+            fiches
+                .filter(f => f.statut === "PAYEE")
+                .reduce(
+                    (s, f) => s + f.netAPayer,
+                    0
+                );
+
+
+        const montantTotal =
+            fiches.reduce(
+                (s, f) => s + f.netAPayer,
+                0
+            );
+
+
+        return {
+
+            paidLabel:
+                `Payé : ${fmt(montantPaye)} MAD`,
+
+            pendingLabel:
+                `Restant : ${fmt(montantTotal - montantPaye)} MAD`,
+
+            paidPct: pct,
+
+            footerLabel:
+                `${pct}% des fiches payées`
+
+        };
+
+    },
+
+
+
+    masseSalarialeParDept:
+        (fiches: FichePaie[]): DataPoint[] => {
+
+            const map: Record<string, number> = {};
+
+
+            fiches.forEach(f => {
+
+                map[f.chantierNom]
+                    =
+                    (map[f.chantierNom] ?? 0)
+                    +
+                    f.netAPayer;
+
+            });
+
+
+            return Object.entries(map)
+                .map(
+                    ([label, value], i) => ({
+                        label,
+                        value,
+                        color: color(i)
+                    })
+                );
+
+        },
+
+
+
+    gainsVsRetenues:
+        (fiches: FichePaie[]): MultiSeriesData => ({
+
+            labels:
+                fiches.map(
+                    f => f.employeNomComplet
+                ),
+
+
+            series: [
+
+                {
+                    label: "Salaire net",
+                    data:
+                        fiches.map(
+                            f => f.netAPayer
+                        ),
+                    color: "#1baf7a",
+                    fill: false
+                },
+
+
+                {
+                    label: "Retenues",
+                    data:
+                        fiches.map(
+                            f =>
+                                (f.deductionsCnss ?? 0)
+                                +
+                                (f.deductionsIr ?? 0)
+                        ),
+                    color: "#e34948",
+                    fill: false
+                }
+
+            ]
+
+        }),
+
+
+
+    statutsFiches:
+        (fiches: FichePaie[]): StatusPoint[] => {
+
+            const meta: Record<StatutSalaire, { label: string; color: string; badgeBg: string; badgeText: string }> = {
+
+                BROUILLON: {
+                    label: "Brouillon",
+                    color: "#6b7280",
+                    badgeBg: "bg-gray-100 dark:bg-gray-800",
+                    badgeText: "text-gray-600"
+                },
+
+                VALIDE: {
+                    label: "Validé",
+                    color: "#2563eb",
+                    badgeBg: "bg-blue-100 dark:bg-blue-900/30",
+                    badgeText: "text-blue-700"
+                },
+
+                PAYEE: {
+                    label: "Payé",
+                    color: "#16a34a",
+                    badgeBg: "bg-green-100 dark:bg-green-900/30",
+                    badgeText: "text-green-700"
+                }
+
+            };
+
+
+            return (Object.keys(meta) as StatutSalaire[])
+                .map(
+                    (s) => ({
+
+                        label: meta[s].label,
+
+                        value:
+                            fiches.filter(
+                                f => f.statut === s
+                            ).length,
+
+                        color: meta[s].color,
+
+                        badgeBg: meta[s].badgeBg,
+
+                        badgeText: meta[s].badgeText
+
+                    })
+                )
+                .filter(x => x.value > 0);
+
+
+        },
+
+
+
+    topSalaires:
+        (fiches: FichePaie[]): DataPoint[] => {
+
+            return [...fiches]
+
+                .sort(
+                    (a, b) => b.netAPayer - a.netAPayer
+                )
+
+                .slice(0, 6)
+
+                .map(
+                    (f, i) => ({
+
+                        label: f.employeNomComplet,
+
+                        value: f.netAPayer,
+
+                        color: color(i)
+
+                    })
+                );
+
+
+        }
+
 };
 
-export const salairesHydrationConfig = {
-    kpis: (fiches: FichePaie[]): KpiItem[] => {
-        const masseNette = fiches.reduce((s, f) => s + f.salaireNet, 0);
-        const masseBrute = fiches.reduce((s, f) => s + f.salaireBrut, 0);
-        const retenues = fiches.reduce((s, f) => s + f.totalRetenues, 0);
-        const paye = fiches.filter(f => f.statut === "PAYE").length;
-        return [
-            { label: "Employés", value: `${fiches.length}`, sub: `${paye} fiches payées` },
-            { label: "Masse brute", value: fmt(masseBrute), sub: "MAD" },
-            { label: "Masse nette", value: fmt(masseNette), sub: "à virer" },
-            { label: "Total retenues", value: fmt(retenues), sub: "CNSS + AMO + IGR" },
-        ];
-    },
-    progress: (fiches: FichePaie[]): ProgressData => {
-        const total = fiches.length;
-        const paye = fiches.filter(f => f.statut === "PAYE").length;
-        const paidPct = total > 0 ? Math.round((paye / total) * 100) : 0;
-        const massePayee = fiches.filter(f => f.statut === "PAYE").reduce((s, f) => s + f.salaireNet, 0);
-        const masseTotal = fiches.reduce((s, f) => s + f.salaireNet, 0);
-        return { paidLabel: `Payé : ${fmt(massePayee)} MAD`, pendingLabel: `En attente : ${fmt(masseTotal - massePayee)} MAD`, paidPct, footerLabel: `${paidPct}% des fiches de paie virées` };
-    },
-    masseSalarialeParDept: (fiches: FichePaie[]): DataPoint[] => {
-        const map = fiches.reduce<Record<string, number>>((acc, f) => { acc[f.employe.departement] = (acc[f.employe.departement] ?? 0) + f.salaireBrut; return acc; }, {});
-        return Object.entries(map).sort((a, b) => b[1] - a[1]).map(([label, value], i) => ({ label, value, color: color(i) }));
-    },
-    gainsVsRetenues: (fiches: FichePaie[]): MultiSeriesData => ({
-        labels: fiches.map(f => `${f.employe.prenom.charAt(0)}. ${f.employe.nom}`),
-        series: [
-            { label: "Total gains", data: fiches.map(f => f.totalGains), color: "#1baf7a", fill: false },
-            { label: "Total retenues", data: fiches.map(f => f.totalRetenues), color: "#e34948", fill: false },
-        ],
-    }),
-    statutsFiches: (fiches: FichePaie[]): StatusPoint[] =>
-        (["PAYE", "VALIDE", "EN_ATTENTE"] as StatutSalaire[]).map(s => ({
-            label: SALAIRE_STATUS_META[s].label,
-            value: fiches.filter(f => f.statut === s).length,
-            color: SALAIRE_STATUS_META[s].dot,
-            badgeBg: SALAIRE_STATUS_META[s].bg,
-            badgeText: SALAIRE_STATUS_META[s].text,
-        })).filter(d => d.value > 0),
-    topSalaires: (fiches: FichePaie[]): DataPoint[] =>
-        [...fiches].sort((a, b) => b.salaireNet - a.salaireNet).slice(0, 6)
-            .map((f, i) => ({ label: `${f.employe.prenom} ${f.employe.nom}`, value: f.salaireNet, color: color(i) })),
-};
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ⑨ TRÉSORERIE  (input: Transaction[])
@@ -709,73 +971,61 @@ export const salairesHydrationConfig = {
 
 export interface TresorerieHydrated {
     kpis: KpiItem[];
-    fluxParCategorie: DataPoint[];          // horizontal bar — total par catégorie
-    encVsDecParJour: MultiSeriesData;       // line — encaissements vs décaissements par date
-    repartitionFlux: StatusPoint[];         // donut — encaissements vs décaissements
-    topDecaissements: DataPoint[];          // horizontal bar — top 6 décaissements
+    fluxParCaisse: DataPoint[];             // horizontal bar — total par caisse
+    encVsDecParJour: MultiSeriesData;       // line — CREDIT vs DEBIT par date
+    repartitionFlux: StatusPoint[];         // donut — CREDIT vs DEBIT
+    topDecaissements: DataPoint[];          // horizontal bar — top 6 DEBIT
     soldeCaisses: DataPoint[];              // horizontal bar (fed from Caisse[] separately — see note)
 }
 
-const CATEGORIE_LABELS: Record<TransactionCategorie, string> = {
-    PAIEMENT_FOURNISSEUR: "Fournisseurs",
-    PAIEMENT_SOUSTRAIT: "Sous-traitants",
-    PAIEMENT_SALAIRE: "Salaires",
-    ENCAISSEMENT_CLIENT: "Clients",
-    FRAIS_GENERAUX: "Frais généraux",
-    DEPOT_BANQUE: "Dépôt banque",
-    RETRAIT_BANQUE: "Retrait banque",
-    AUTRE: "Autre",
-};
-
 export const tresorerieHydrationConfig = {
     kpis: (transactions: Transaction[]): KpiItem[] => {
-        const enc = transactions.filter(t => t.type === "ENCAISSEMENT").reduce((s, t) => s + t.montant, 0);
-        const dec = transactions.filter(t => t.type === "DECAISSEMENT").reduce((s, t) => s + t.montant, 0);
-        const net = enc - dec;
+        const credit = transactions.filter(t => t.typeTransaction === "CREDIT").reduce((s, t) => s + t.montant, 0);
+        const debit = transactions.filter(t => t.typeTransaction === "DEBIT").reduce((s, t) => s + t.montant, 0);
+        const net = credit - debit;
         return [
-            { label: "Encaissements", value: fmt(enc), sub: `${transactions.filter(t => t.type === "ENCAISSEMENT").length} opérations` },
-            { label: "Décaissements", value: fmt(dec), sub: `${transactions.filter(t => t.type === "DECAISSEMENT").length} opérations` },
+            { label: "Encaissements", value: fmt(credit), sub: `${transactions.filter(t => t.typeTransaction === "CREDIT").length} opérations` },
+            { label: "Décaissements", value: fmt(debit), sub: `${transactions.filter(t => t.typeTransaction === "DEBIT").length} opérations` },
             { label: "Flux net", value: fmt(net), sub: net >= 0 ? "positif" : "négatif" },
-            { label: "Transactions", value: `${transactions.length}`, sub: "ce mois" },
+            { label: "Transactions", value: `${transactions.length}`, sub: "toutes caisses" },
         ];
     },
-    fluxParCategorie: (transactions: Transaction[]): DataPoint[] => {
+    fluxParCaisse: (transactions: Transaction[]): DataPoint[] => {
         const map: Record<string, number> = {};
-        transactions.forEach(t => { const k = CATEGORIE_LABELS[t.categorie]; map[k] = (map[k] ?? 0) + t.montant; });
+        transactions.forEach(t => { map[t.caisseLibelle] = (map[t.caisseLibelle] ?? 0) + t.montant; });
         return Object.entries(map).sort((a, b) => b[1] - a[1]).map(([label, value], i) => ({ label, value, color: color(i) }));
     },
     encVsDecParJour: (transactions: Transaction[]): MultiSeriesData => {
-        const dates = [...new Set(transactions.map(t => t.date))].sort();
-        const enc = (d: string) => transactions.filter(t => t.date === d && t.type === "ENCAISSEMENT").reduce((s, t) => s + t.montant, 0);
-        const dec = (d: string) => transactions.filter(t => t.date === d && t.type === "DECAISSEMENT").reduce((s, t) => s + t.montant, 0);
+        const dates = [...new Set(transactions.map(t => t.createdAt.slice(0, 10)))].sort();
+        const credit = (d: string) => transactions.filter(t => t.createdAt.slice(0, 10) === d && t.typeTransaction === "CREDIT").reduce((s, t) => s + t.montant, 0);
+        const debit = (d: string) => transactions.filter(t => t.createdAt.slice(0, 10) === d && t.typeTransaction === "DEBIT").reduce((s, t) => s + t.montant, 0);
         return {
             labels: dates.map(d => new Date(d).toLocaleDateString("fr-MA", { day: "2-digit", month: "2-digit" })),
             series: [
-                { label: "Encaissements", data: dates.map(enc), color: "#1baf7a", fill: true, dashed: false },
-                { label: "Décaissements", data: dates.map(dec), color: "#e34948", fill: false, dashed: true },
+                { label: "Encaissements", data: dates.map(credit), color: "#1baf7a", fill: true, dashed: false },
+                { label: "Décaissements", data: dates.map(debit), color: "#e34948", fill: false, dashed: true },
             ],
         };
     },
     repartitionFlux: (transactions: Transaction[]): StatusPoint[] => {
-        const enc = transactions.filter(t => t.type === "ENCAISSEMENT").reduce((s, t) => s + t.montant, 0);
-        const dec = transactions.filter(t => t.type === "DECAISSEMENT").reduce((s, t) => s + t.montant, 0);
+        const credit = transactions.filter(t => t.typeTransaction === "CREDIT").reduce((s, t) => s + t.montant, 0);
+        const debit = transactions.filter(t => t.typeTransaction === "DEBIT").reduce((s, t) => s + t.montant, 0);
         return [
-            { label: "Encaissements", value: enc, color: "#1baf7a", badgeBg: "bg-green-100 dark:bg-green-900/30", badgeText: "text-green-700 dark:text-green-400" },
-            { label: "Décaissements", value: dec, color: "#e34948", badgeBg: "bg-red-100 dark:bg-red-900/30", badgeText: "text-red-700 dark:text-red-400" },
+            { label: "Encaissements", value: credit, color: "#1baf7a", badgeBg: "bg-green-100 dark:bg-green-900/30", badgeText: "text-green-700 dark:text-green-400" },
+            { label: "Décaissements", value: debit, color: "#e34948", badgeBg: "bg-red-100 dark:bg-red-900/30", badgeText: "text-red-700 dark:text-red-400" },
         ];
     },
     topDecaissements: (transactions: Transaction[]): DataPoint[] =>
-        [...transactions].filter(t => t.type === "DECAISSEMENT").sort((a, b) => b.montant - a.montant).slice(0, 6)
-            .map((t, i) => ({ label: t.libelle.length > 30 ? t.libelle.slice(0, 28) + "…" : t.libelle, value: t.montant, color: color(i) })),
+        [...transactions].filter(t => t.typeTransaction === "DEBIT").sort((a, b) => b.montant - a.montant).slice(0, 6)
+            .map((t, i) => ({ label: t.motif.length > 30 ? t.motif.slice(0, 28) + "…" : t.motif, value: t.montant, color: color(i) })),
     // soldeCaisses is fed with Caisse[] not Transaction[], so expose a separate helper:
     soldeCaisses: (_transactions: Transaction[]): DataPoint[] => [],  // override at call site with caisses
 };
 
 /** Separate helper for Caisse[] — call this directly and pass result as `soldeCaisses`. */
 export function hydratedSoldeCaisses(caisses: Caisse[]): DataPoint[] {
-    return [...caisses].sort((a, b) => b.solde - a.solde).map((c, i) => ({ label: c.libelle.length > 28 ? c.libelle.slice(0, 26) + "…" : c.libelle, value: c.solde, color: color(i) }));
+    return [...caisses].sort((a, b) => b.solde - a.solde).map((c, i) => ({ label: c.libelle.length > 28 ? c.libelle.slice(0, 26) + "…" : c.libelle, value: c.solde, color: c.enAlerte ? "#e34948" : color(i) }));
 }
-
 // ─────────────────────────────────────────────────────────────────────────────
 // ⑩ PAIEMENTS
 // ─────────────────────────────────────────────────────────────────────────────
@@ -793,6 +1043,13 @@ const PAIEMENT_STATUS_META: Record<PaiementStatut, { label: string; bg: string; 
     PAYE: { label: "Payé", bg: "bg-green-100 dark:bg-green-900/30", text: "text-green-700 dark:text-green-400", dot: "#16a34a" },
     EN_ATTENTE: { label: "En attente", bg: "bg-gray-100 dark:bg-gray-800", text: "text-gray-600 dark:text-gray-400", dot: "#6b7280" },
     EN_RETARD: { label: "En retard", bg: "bg-red-100 dark:bg-red-900/30", text: "text-red-700 dark:text-red-400", dot: "#dc2626" },
+    VALIDE: {
+        label: "Validé",
+        bg: "bg-blue-100 dark:bg-blue-900/30",
+        text: "text-blue-700 dark:text-blue-400",
+        dot: "#2563eb",
+    },
+
     PARTIELLEMENT_PAYE: { label: "Partiellement payé", bg: "bg-amber-100 dark:bg-amber-900/30", text: "text-amber-700 dark:text-amber-400", dot: "#d97706" },
 };
 
@@ -856,12 +1113,12 @@ export interface ComptabiliteHydrated {
     comparaisonNN1: MultiSeriesData;      // grouped bar — N vs N-1 (fed from CompteResultat[])
 }
 
-const JOURNAL_LABELS: Record<JournalCode, string> = { ACH: "Achats", VTE: "Ventes", BNQ: "Banque", CAI: "Caisse", OD: "OD", SAL: "Salaires" };
+const JOURNAL_LABELS: Record<JournalCode, string> = { ACH: "Achats", VTE: "Ventes", BNQ: "Banque", CAI: "Caisse", OD: "OD", SAL: "Salaires", STR: "Sous-traitance" };
 
 export const comptabiliteHydrationConfig = {
     kpis: (ecritures: EcritureComptable[]): KpiItem[] => {
-        const totalDebit = ecritures.flatMap(e => e.lignes).reduce((s, l) => s + l.debit, 0);
-        const totalCredit = ecritures.flatMap(e => e.lignes).reduce((s, l) => s + l.credit, 0);
+        const totalDebit = ecritures.flatMap(e => e.lignes ?? []).reduce((s, l) => s + l.debit, 0);
+        const totalCredit = ecritures.flatMap(e => e.lignes ?? []).reduce((s, l) => s + l.credit, 0);
         const journals = new Set(ecritures.map(e => e.journal)).size;
         return [
             { label: "Écritures", value: `${ecritures.length}`, sub: `${journals} journaux` },
@@ -880,14 +1137,13 @@ export const comptabiliteHydrationConfig = {
         return {
             labels: journals.map(j => JOURNAL_LABELS[j]),
             series: [
-                { label: "Débit", data: journals.map(j => ecritures.filter(e => e.journal === j).flatMap(e => e.lignes).reduce((s, l) => s + l.debit, 0)), color: "#2a78d6", fill: false },
-                { label: "Crédit", data: journals.map(j => ecritures.filter(e => e.journal === j).flatMap(e => e.lignes).reduce((s, l) => s + l.credit, 0)), color: "#e34948", fill: false },
-            ],
+                { label: "Débit", data: journals.map(j => ecritures.filter(e => e.journal === j).flatMap(e => e.lignes ?? []).reduce((s, l) => s + l.debit, 0)), color: "#2a78d6", fill: false },
+                { label: "Crédit", data: journals.map(j => ecritures.filter(e => e.journal === j).flatMap(e => e.lignes ?? []).reduce((s, l) => s + l.credit, 0)), color: "#e34948", fill: false },],
         };
     },
     topComptes: (ecritures: EcritureComptable[]): DataPoint[] => {
         const map: Record<string, { libelle: string; debit: number }> = {};
-        ecritures.flatMap(e => e.lignes).forEach(l => {
+        ecritures.flatMap(e => e.lignes ?? []).forEach(l => {
             if (!map[l.compteNum]) map[l.compteNum] = { libelle: l.compteLibelle, debit: 0 };
             map[l.compteNum].debit += l.debit;
         });
@@ -901,7 +1157,7 @@ export const comptabiliteHydrationConfig = {
 
 /** Separate helpers for CompteResultat[] — call directly. */
 export function hydratedResultatN(cr: CompteResultat[]): DataPoint[] {
-    return cr.map((r, i) => ({ label: r.libelle.length > 26 ? r.libelle.slice(0, 24) + "…" : r.libelle, value: r.montantN, color: r.categorie === "PRODUIT" ? "#1baf7a" : "#e34948" }));
+    return cr.map(r => ({ label: r.libelle.length > 26 ? r.libelle.slice(0, 24) + "…" : r.libelle, value: r.montantN, color: r.categorie === "PRODUIT" ? "#1baf7a" : "#e34948" }));
 }
 export function hydratedComparaisonNN1(cr: CompteResultat[]): MultiSeriesData {
     return {
@@ -995,3 +1251,6 @@ export const hydrationConfigs = {
     comptabilite: comptabiliteHydrationConfig,
     annuaire: annuaireHydrationConfig,
 } as const;
+
+
+

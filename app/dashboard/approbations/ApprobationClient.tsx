@@ -22,12 +22,11 @@ export default function ApprobationsClient() {
         setError(null);
         try {
             const res = await fetch("/api/users/pending", { cache: "no-store" });
+            if (!res.ok) throw new Error();
             const data = await res.json();
-            console.log("DATA = ", res.status, data);
-            if (!res.ok) throw new Error(data?.message ?? "Erreur de chargement");
             setPending(data?.data ?? []);
-        } catch (err) {
-            setError(err instanceof Error ? err.message : "Erreur de connexion");
+        } catch {
+            setError("Une erreur est survenue. Veuillez réessayer.");
         } finally {
             setLoading(false);
         }
@@ -41,13 +40,10 @@ export default function ApprobationsClient() {
         setActingOn(id);
         try {
             const res = await fetch(`/api/users/${id}/${action}`, { method: "POST" });
-            if (!res.ok) {
-                const data = await res.json().catch(() => null);
-                throw new Error(data?.message ?? "Action impossible");
-            }
+            if (!res.ok) throw new Error();
             setPending((prev) => prev.filter((u) => u.id !== id));
-        } catch (err) {
-            alert(err instanceof Error ? err.message : "Erreur");
+        } catch {
+            alert("Une erreur est survenue. Veuillez réessayer.");
         } finally {
             setActingOn(null);
         }

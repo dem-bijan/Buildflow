@@ -1,10 +1,15 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+
+import { createAchat } from "@/lib/api/achats";
+import { fetchFournisseurs } from "@/lib/api/fournisseurs";
+import { fetchChantiers } from "@/lib/api/chantier";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { fetchAchats } from "@/lib/api/achats";
 import { hydrate } from "@/components/functions2";
 import type { Achat, AchatsHydrated } from "@/components/functions2";
 import { achatsHydrationConfig } from "@/components/functions2";
+import { fetchArticles } from "@/lib/api/articles";
 import { fmt } from "@/components/functions2";
 import {
   ChartJsLoader,
@@ -14,7 +19,9 @@ import {
   HorizontalBarChart,
   DonutChart,
   StackedBarChart,
-  LineChart
+  LineChart,
+  RefreshButton,
+  PrimaryActionButton,
 } from "@/components/Functions";
 
 export default function AchatsClient() {
@@ -22,29 +29,85 @@ export default function AchatsClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [showForm, setShowForm] = useState(false);
+  const [articles, setArticles] = useState<
+    {
+      id: string;
+      designation: string;
+      prixAchatRef: number;
+    }[]
+  >([]);
+  const [fournisseurs, setFournisseurs] = useState<
+    { id: string; raisonSociale: string }[]
+  >([]);
+
+  const [chantiers, setChantiers] = useState<
+    { id: string; nom: string }[]
+  >([]);
+
+  const [submitting, setSubmitting] = useState(false);
+
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const [form, setForm] = useState({
+    ref: "",
+    fournisseurId: "",
+    chantierId: "",
+    dateCommande: new Date().toISOString().slice(0, 10),
+    dateLivraisonPrevue: new Date().toISOString().slice(0, 10),
+    lignes: [
+      {
+        articleId: "",
+        designation: "",
+        quantite: 1,
+        prixUnitaire: 0
+      }
+    ]
+  });
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    try {
-      const data = await fetchAchats();
-      let items: any[] = [];
-      
-      if (Array.isArray(data)) {
-        items = data;
-      } else if (data && typeof data === 'object') {
-        if ('content' in data && Array.isArray((data as any).content)) {
-          items = (data as any).content;
-        } else if ('data' in data && Array.isArray((data as any).data)) {
-          items = (data as any).data;
-        }
-      }
 
-      setAchats(items);
-    } catch (err: unknown) {
-      console.error("[AchatsClient] Error loading data:", err);
-      const msg = err instanceof Error ? err.message : "Erreur de connexion au serveur";
-      setError(msg);
+    try {
+      const [
+        achatsData,
+        fournisseursData,
+        chantiersData,
+        articlesData
+      ] = await Promise.all([
+        fetchAchats(),
+        fetchFournisseurs(),
+        fetchChantiers(),
+        fetchArticles(),
+      ]);
+
+      setAchats(achatsData ?? []);
+
+      setFournisseurs(
+        fournisseursData.map(f => ({
+          id: f.id,
+          raisonSociale: f.raisonSociale,
+        }))
+      );
+
+      setChantiers(
+        chantiersData.map(c => ({
+          id: c.id,
+          nom: c.nom,
+        }))
+      );
+
+      setArticles(
+        articlesData.content.map(a => ({
+          id: a.id,
+          designation: a.designation,
+          prixAchatRef: a.prixAchatRef,
+        }))
+      );
+
+    } catch {
+      setError("Une erreur est survenue. Veuillez réessayer.");
     } finally {
       setLoading(false);
     }
@@ -52,13 +115,62 @@ export default function AchatsClient() {
 
   useEffect(() => { load(); }, [load]);
 
-  const filtered = search
-    ? achats.filter(a =>
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    setSubmitting(true);
+    setFormError(null);
+
+    try {
+
+      await createAchat({
+        ...form,
+        lignes: form.lignes.map(l => ({
+          articleId: l.articleId,
+          designation: l.designation,
+          quantite: Number(l.quantite),
+          prixUnitaire: Number(l.prixUnitaire)
+        }))
+      });
+
+      setShowForm(false);
+
+      setForm({
+        ref: "",
+        fournisseurId: "",
+        chantierId: "",
+        dateCommande: new Date().toISOString().slice(0, 10),
+        dateLivraisonPrevue: new Date().toISOString().slice(0, 10),
+        lignes: [
+          {
+            articleId: "",
+            designation: "",
+            quantite: 1,
+            prixUnitaire: 0
+          }
+        ]
+      });
+
+      await load();
+
+    } catch {
+      setFormError("Impossible de créer l'achat");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const filtered = useMemo(() => (
+    search
+      ? achats.filter(a =>
         a.ref.toLowerCase().includes(search.toLowerCase()) ||
         a.fournisseurNom.toLowerCase().includes(search.toLowerCase()) ||
         a.chantierNom.toLowerCase().includes(search.toLowerCase())
       )
-    : achats;
+      : achats
+  ), [achats, search]);
+
+  const h = useMemo(() => hydrate<Achat, AchatsHydrated>(achats, achatsHydrationConfig), [achats]);
 
   if (loading && achats.length === 0) {
     return (
@@ -68,7 +180,7 @@ export default function AchatsClient() {
           <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-accent animate-spin" />
         </div>
         <p className="text-sm text-content-muted dark:text-content-muted-dark animate-pulse">
-          Chargement des achats depuis le serveur…
+          Chargement…
         </p>
       </div>
     );
@@ -93,12 +205,10 @@ export default function AchatsClient() {
     );
   }
 
-  const h = hydrate<Achat, AchatsHydrated>(achats, achatsHydrationConfig);
-
   return (
     <ChartJsLoader>
       <div className="bg-surface-page dark:bg-surface-page-dark min-h-full py-6 px-4 sm:px-6 lg:px-8">
-        
+
         {/* ── Header ──────────────────────────────────────────────────── */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>
@@ -106,20 +216,295 @@ export default function AchatsClient() {
               Achats — Commandes
             </h1>
             <p className="text-sm text-content-muted dark:text-content-muted-dark mt-1">
-              {achats.length} commandes enregistrées · Données temps réel
+              {achats.length} commandes enregistrées
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => load()}
-              disabled={loading}
-              className="px-4 py-2 text-xs font-semibold text-accent border border-accent/30 rounded-lg hover:bg-accent/5 disabled:opacity-50 transition-colors"
-            >
-              {loading ? "…" : "↻ Actualiser"}
-            </button>
+            <RefreshButton onClick={() => load()} loading={loading} />
+            <PrimaryActionButton onClick={() => setShowForm(v => !v)}>
+              {showForm ? "Fermer" : "+ Nouvelle commande"}
+            </PrimaryActionButton>
           </div>
         </div>
 
+        {showForm && (
+          <form
+            onSubmit={handleSubmit}
+            className="mb-6 rounded-2xl border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark p-4 space-y-5"
+          >
+            <h2 className="text-sm font-semibold text-content-primary dark:text-content-primary-dark">
+              Nouvelle commande achat
+            </h2>
+
+            <div className="grid gap-4 md:grid-cols-2">
+
+              <label className="text-sm space-y-1">
+                <span className="text-content-muted">Référence</span>
+                <input
+                  required
+                  value={form.ref}
+                  onChange={(e) =>
+                    setForm(v => ({ ...v, ref: e.target.value }))
+                  }
+                  className="w-full rounded-lg border border-edge-subtle px-3 py-2"
+                  placeholder="ACH-001"
+                />
+              </label>
+
+
+              <label className="text-sm space-y-1">
+                <span className="text-content-muted">Fournisseur</span>
+                <select
+                  required
+                  value={form.fournisseurId}
+                  onChange={(e) =>
+                    setForm(v => ({
+                      ...v,
+                      fournisseurId: e.target.value
+                    }))
+                  }
+                  className="w-full rounded-lg border border-edge-subtle px-3 py-2"
+                >
+                  <option value="">Choisir un fournisseur</option>
+
+                  {fournisseurs.map(f => (
+                    <option key={f.id} value={f.id}>
+                      {f.raisonSociale}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+
+              <label className="text-sm space-y-1">
+                <span className="text-content-muted">Chantier</span>
+                <select
+                  required
+                  value={form.chantierId}
+                  onChange={(e) =>
+                    setForm(v => ({
+                      ...v,
+                      chantierId: e.target.value
+                    }))
+                  }
+                  className="w-full rounded-lg border border-edge-subtle px-3 py-2"
+                >
+                  <option value="">Choisir un chantier</option>
+
+                  {chantiers.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.nom}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+
+              <label className="text-sm space-y-1">
+                <span className="text-content-muted">Date commande</span>
+                <input
+                  type="date"
+                  required
+                  value={form.dateCommande}
+                  onChange={(e) =>
+                    setForm(v => ({
+                      ...v,
+                      dateCommande: e.target.value
+                    }))
+                  }
+                  className="w-full rounded-lg border border-edge-subtle px-3 py-2"
+                />
+              </label>
+
+
+              <label className="text-sm space-y-1">
+                <span className="text-content-muted">
+                  Date livraison prévue
+                </span>
+
+                <input
+                  type="date"
+                  required
+                  value={form.dateLivraisonPrevue}
+                  onChange={(e) =>
+                    setForm(v => ({
+                      ...v,
+                      dateLivraisonPrevue: e.target.value
+                    }))
+                  }
+                  className="w-full rounded-lg border border-edge-subtle px-3 py-2"
+                />
+              </label>
+
+            </div>
+
+
+            <div className="space-y-3">
+
+              <div className="flex justify-between items-center">
+                <h3 className="text-sm font-semibold">
+                  Lignes de commande
+                </h3>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setForm(v => ({
+                      ...v,
+                      lignes: [
+                        ...v.lignes,
+                        {
+                          articleId: "",
+                          designation: "",
+                          quantite: 1,
+                          prixUnitaire: 0
+                        }
+                      ]
+                    }))
+                  }
+                  className="text-xs text-accent font-semibold"
+                >
+                  + Ajouter une ligne
+                </button>
+              </div>
+
+
+              {form.lignes.map((ligne, index) => (
+
+                <div
+                  key={index}
+                  className="grid gap-3 md:grid-cols-4 items-end"
+                >
+                  <label className="text-sm space-y-1 md:col-span-2">
+                    <span className="text-content-muted">
+                      Désignation
+                    </span>
+
+                    <label className="text-sm space-y-1 md:col-span-2">
+                      <span className="text-content-muted">Article</span>
+
+                      <select
+                        required
+                        value={ligne.articleId}
+                        onChange={(e) => {
+                          const article = articles.find(a => a.id === e.target.value);
+
+                          setForm(v => ({
+                            ...v,
+                            lignes: v.lignes.map((l, i) =>
+                              i === index
+                                ? {
+                                  ...l,
+                                  articleId: article?.id ?? "",
+                                  designation: article?.designation ?? "",
+                                  prixUnitaire: article?.prixAchatRef ?? 0,
+                                }
+                                : l
+                            ),
+                          }));
+                        }}
+                        className="w-full rounded-lg border border-edge-subtle px-3 py-2"
+                      >
+                        <option value="">Choisir un article</option>
+
+                        {articles.map(article => (
+                          <option key={article.id} value={article.id}>
+                            {article.designation}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </label>
+
+
+                  <label className="text-sm space-y-1">
+                    <span className="text-content-muted">
+                      Quantité
+                    </span>
+
+                    <input
+                      type="number"
+                      min="1"
+                      required
+                      value={ligne.quantite}
+                      onChange={(e) =>
+                        setForm(v => ({
+                          ...v,
+                          lignes: v.lignes.map((l, i) =>
+                            i === index
+                              ? { ...l, quantite: Number(e.target.value) }
+                              : l
+                          )
+                        }))
+                      }
+                      className="w-full rounded-lg border border-edge-subtle px-3 py-2"
+                    />
+                  </label>
+
+
+                  <label className="text-sm space-y-1">
+                    <span className="text-content-muted">
+                      Prix HT
+                    </span>
+
+                    <div className="w-full rounded-lg border border-edge-subtle px-3 py-2 bg-gray-100">
+                      {ligne.prixUnitaire} DH
+                    </div>
+                  </label>
+
+
+                  {form.lignes.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setForm(v => ({
+                          ...v,
+                          lignes: v.lignes.filter((_, i) => i !== index)
+                        }))
+                      }
+                      className="text-xs text-red-500"
+                    >
+                      Supprimer
+                    </button>
+                  )}
+
+                </div>
+
+              ))}
+
+            </div>
+
+
+            {formError && (
+              <p className="text-sm text-red-500">
+                {formError}
+              </p>
+            )}
+
+
+            <div className="flex gap-3">
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                {submitting ? "Enregistrement…" : "Créer la commande"}
+              </button>
+
+
+              <button
+                type="button"
+                onClick={() => setShowForm(false)}
+                className="text-sm text-content-muted"
+              >
+                Annuler
+              </button>
+
+            </div>
+
+          </form>
+        )}
         {/* ── KPIs ─────────────────────────────────────────────────────── */}
         <Section title="Vue d'ensemble">
           <KpiGrid kpis={h.kpis} />
@@ -181,6 +566,7 @@ export default function AchatsClient() {
 
 function AchatsTable({ achats }: { achats: Achat[] }) {
   const [expanded, setExpanded] = useState<string | null>(null);
+  const hTable = useMemo(() => achatsHydrationConfig.table(achats), [achats]);
 
   if (achats.length === 0) {
     return (
@@ -189,8 +575,6 @@ function AchatsTable({ achats }: { achats: Achat[] }) {
       </div>
     );
   }
-
-  const hTable = hydrate<Achat, AchatsHydrated>(achats, achatsHydrationConfig).table;
 
   return (
     <div className="overflow-x-auto">

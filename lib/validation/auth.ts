@@ -36,5 +36,22 @@ export const loginSchema = z.object({
     password: z.string().min(1, "Password is required"), // don't re-validate strength on login
 });
 
+export const changeEmailSchema = z.object({
+    newEmail: emailSchema,
+    currentPassword: z.string().min(1, "Current password is required"),
+});
+
+export const changePasswordSchema = z.object({
+    currentPassword: z.string().min(1, "Current password is required"),
+    newPassword: passwordSchema,
+});
+
+export const deleteAccountSchema = z.object({
+    currentPassword: z.string().min(1, "Current password is required"),
+});
+
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
+export type ChangeEmailInput = z.infer<typeof changeEmailSchema>;
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+export type DeleteAccountInput = z.infer<typeof deleteAccountSchema>;
