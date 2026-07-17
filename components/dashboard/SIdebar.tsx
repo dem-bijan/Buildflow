@@ -3,7 +3,7 @@
 import ShinyText from "@/components/ShinyText";
 import { LayoutGroup } from "framer-motion";
 import { useAuth } from "@/lib/authContext";
-import { isAllowed } from "@/lib/auth/permissions";
+import { isAllowed, type Role } from "@/lib/auth/permissions";
 import SidebarItem from "./SidebarItem";
 import {
     LayoutDashboard,
@@ -14,7 +14,6 @@ import {
     Wallet,
     Wrench,
     BadgeDollarSign,
-    FolderKanban,
     BookOpen,
     Truck,
     ContactRound,
@@ -34,7 +33,6 @@ const sections = [
     { title: "Tresorerie et Caisse", href: "/dashboard/tresorerie", icon: Wallet },
     { title: "Sous Traitance", href: "/dashboard/sous-traitance", icon: Wrench },
     { title: "Salaires", href: "/dashboard/salaires", icon: BadgeDollarSign },
-    { title: "Affectation (Projets)", href: "/dashboard/affectation", icon: FolderKanban },
     { title: "Catalogue Articles", href: "/dashboard/catalogue", icon: BookOpen },
     { title: "Fournisseurs", href: "/dashboard/fournisseurs", icon: Truck },
     { title: "Paiements", href: "/dashboard/payments", icon: Wallet },
@@ -59,7 +57,7 @@ export default function Sidebar() {
     if (!mounted) return null;
 
     const isDark = resolvedTheme === "dark";
-    const visibleItems = sections.filter((section) => isAllowed(section.href, user?.role as any));
+    const visibleItems = sections.filter((section) => isAllowed(section.href, user?.role as Role | undefined));
 
     return (
         <>

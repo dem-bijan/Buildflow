@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { getAchats } from "@/lib/data/achats";
 import { hydrate } from "@/components/functions2";
 import type { Achat, AchatsHydrated } from "@/components/functions2";
@@ -13,9 +13,9 @@ export default function CompAchats() {
         getAchats().then(setAchats);
     }, []);
 
-    if (achats.length === 0) return null;
+    const hydrated = useMemo(() => hydrate<Achat, AchatsHydrated>(achats, achatsHydrationConfig), [achats]);
 
-    const hydrated = hydrate<Achat, AchatsHydrated>(achats, achatsHydrationConfig);
+    if (achats.length === 0) return null;
 
     return (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 h-full">

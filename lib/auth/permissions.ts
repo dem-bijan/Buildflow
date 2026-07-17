@@ -21,7 +21,6 @@ export const ROUTE_PERMISSIONS: Record<string, Role[]> = {
     "/dashboard/tresorerie": ["ADMIN", "FINANCE", "DIRECTEUR", "CHEF_CHANTIER"],
     "/dashboard/sous-traitance": ["ADMIN", "DIRECTEUR", "FINANCE", "CHEF_CHANTIER"],
     "/dashboard/salaires": ["ADMIN", "RH", "FINANCE", "DIRECTEUR"],
-    "/dashboard/affectation": ["ADMIN", "PM", "DIRECTEUR", "CHEF_CHANTIER"],
     "/dashboard/annuaire": ["ADMIN", "RH", "DIRECTEUR"],
     "/dashboard/payments": ["ADMIN", "FINANCE"],
     "/dashboard/comptabilite": ["ADMIN", "FINANCE", "DIRECTEUR"],

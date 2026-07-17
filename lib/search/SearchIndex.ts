@@ -14,7 +14,6 @@ export const SEARCH_INDEX: SearchItem[] = [
     { title: "Tresorerie et Caisse", href: "/dashboard/tresorerie", keywords: ["cash", "treasury", "caisse"] },
     { title: "Sous Traitance", href: "/dashboard/sous-traitance", keywords: ["subcontracting", "contractors"] },
     { title: "Salaires", href: "/dashboard/salaires", keywords: ["payroll", "wages", "salary"] },
-    { title: "Affectation (Projets)", href: "/dashboard/affectation", keywords: ["assignment", "projects"] },
     { title: "Catalogue Articles", href: "/dashboard/catalogue", keywords: ["catalog", "products", "articles"] },
     { title: "Fournisseurs", href: "/dashboard/fournisseurs", keywords: ["suppliers", "vendors"] },
     { title: "Paiements", href: "/dashboard/payments", keywords: ["payments", "invoices"] },

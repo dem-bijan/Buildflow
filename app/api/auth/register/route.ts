@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { registerSchema } from "@/lib/validation/auth";
 import { setSessionCookie } from "@/lib/session";
 import { checkRateLimit } from "@/lib/rateLimit";
+import { logServerError } from "@/lib/logger";
 
 const BACKEND_URL = process.env.BACKEND_URL; // e.g. https://api.buildflow.ma — server-side only, never NEXT_PUBLIC_
 
@@ -48,15 +49,17 @@ export async function POST(req: NextRequest) {
             body: JSON.stringify(payload),
             cache: "no-store",
         });
-    } catch {
-        return NextResponse.json({ error: "Unable to reach the server" }, { status: 502 });
+    } catch (err) {
+        logServerError("auth.register.backend_unreachable", { message: err instanceof Error ? err.message : "unknown" });
+        return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 502 });
     }
 
     const data = await backendRes.json().catch(() => null);
 
     if (!backendRes.ok) {
-        // Generic message to the client; log details server-side only.
-        console.error("Register failed", backendRes.status, data);
+        if (backendRes.status >= 500) {
+            logServerError("auth.register.backend_error", { status: backendRes.status });
+        }
         const message =
             backendRes.status === 409
                 ? "An account with this email already exists."

@@ -1,5 +1,3 @@
-"use client";
-
 import { ShoppingBag, ArrowUpRight } from "lucide-react";
 
 // Mock Data structure mirroring a practical real-world dashboard state
@@ -24,7 +22,7 @@ export default function LatestPurchasesCard() {
                     </div>
                     <div>
                         <h3 className="text-sm font-bold text-content-primary dark:text-content-primary-dark tracking-wide">Derniers Achats</h3>
-                        <p className="text-[10px] font-medium text-content-secondary dark:text-content-secondary-dark uppercase tracking-widest mt-0.5">Flux d'activité en temps réel</p>
+                        <p className="text-[10px] font-medium text-content-secondary dark:text-content-secondary-dark uppercase tracking-widest mt-0.5">Flux d&apos;activité en temps réel</p>
                     </div>
                 </div>
                 <button className="text-gray-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-200/70 transition-colors">
