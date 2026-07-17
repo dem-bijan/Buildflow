@@ -41,7 +41,7 @@ export function middleware(req: NextRequest) {
     }
 
     if (isProtected && payload && !isAllowed(pathname, payload.role)) {
-        return NextResponse.redirect(new URL("/dashboard?forbiden=1", req.url));
+        return NextResponse.redirect(new URL("/dashboard?forbidden=1", req.url));
     }
 
     const res = NextResponse.next();

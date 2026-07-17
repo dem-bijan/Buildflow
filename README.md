@@ -58,15 +58,21 @@ architecture is built around.
 ## Authorization (who can see what)
 
 `lib/auth/permissions.ts` is a single map from route prefix → allowed roles
-(`ROUTE_PERMISSIONS`). It's the one source of truth, used in three places:
+(`ROUTE_PERMISSIONS`). It's the one source of truth, used in four places:
 
-1. **Sidebar** (`components/dashboard/SIdebar.tsx`) — filters nav items so a role never
+1. **Middleware** (`middleware.ts`) — the actual frontend enforcement point. Runs on
+   every `/dashboard/*` request at the edge: no valid session cookie → redirected to
+   the sign-in modal with a `next` param; valid session but a role the page doesn't
+   allow → redirected back to `/dashboard`. (It decodes the JWT without verifying the
+   signature — that's fine, because the backend independently verifies and authorizes
+   every data request; the middleware only decides what to *show*.)
+2. **Sidebar** (`components/dashboard/SIdebar.tsx`) — filters nav items so a role never
    even sees a link it can't use.
-2. **Dashboard overview** (`app/dashboard/DashboardClient.tsx`) — filters both which
+3. **Dashboard overview** (`app/dashboard/DashboardClient.tsx`) — filters both which
    domain summary cards render *and* which API calls get made, so a role that can't
    see e.g. Salaires never fires that request in the first place.
-3. **Route guard** (`components/RequireRole.tsx`) — redirects away from a page the
-   current role isn't allowed on.
+4. **Route guard** (`components/RequireRole.tsx`) — a client-side second layer,
+   currently mounted on the Approbations page.
 
 The backend enforces the same rules independently (`@PreAuthorize` on every
 controller) — the frontend checks exist for UX, not as the actual security boundary.

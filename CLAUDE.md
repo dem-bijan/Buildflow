@@ -18,16 +18,17 @@ BuildFlow is a Next.js 16.2.9 React application with TypeScript and Tailwind CSS
   /(page) - Main landing page
   /dashboard - Main dashboard area with various modules
     /achats - Procurement/Purchasing module
-    /affectation - Assignment/Allocation module  
-    /annuaire - Directory/Dashboard module
+    /annuaire - Employee directory (RH) module
+    /approbations - Pending-account approval workflow
     /catalogue - Product/Service catalog
-    /comptabilite - Accounting/Finance module
-    /dashboard - Main dashboard overview
+    /comptabilite - Accounting/Finance module (read-only, derived)
     /fournisseurs - Suppliers/Vendors module
     /payments - Payments module
     /salaires - Salaries/Payroll module
-    /sous-traitance - Subcontracting module
-    /stocks - Inventory/Stock module
+    /settings - Account settings (email/password/delete)
+    /sous-traitance - Subcontracting contracts module
+    /sous-traitants - Subcontractor directory (referentiel)
+    /stocks - Inventory/Stock module (read-only, chantier-scoped)
     /suivi-chantiers - Project tracking module
     /tresorerie - Treasury/Cash flow module
     /layout.tsx - Dashboard layout
