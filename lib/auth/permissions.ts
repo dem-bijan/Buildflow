@@ -25,7 +25,7 @@ export const ROUTE_PERMISSIONS: Record<string, Role[]> = {
     "/dashboard/annuaire": ["ADMIN", "RH", "DIRECTEUR"],
     "/dashboard/payments": ["ADMIN", "FINANCE"],
     "/dashboard/comptabilite": ["ADMIN", "FINANCE", "DIRECTEUR"],
-    "/dashboard/approbations": ["ADMIN", "DIRECTEUR", "RH", "PM"]
+    "/dashboard/approbations": ["ADMIN", "DIRECTEUR", "RH", "PM", "FINANCE"] // FINANCE only sees/acts on pending FINANCE accounts (backend Role.canApprove enforces this)
 };
 
 // Returns true if the role is allowed on the given pathname.
