@@ -21,9 +21,13 @@ export const passwordSchema = z
     .refine((pw) => /[A-Z]/.test(pw), "Include at least one uppercase letter")
     .refine((pw) => /[0-9]/.test(pw), "Include at least one number");
 
-// Adjust the enum to match whatever roles your backend actually accepts.
-// Never let the client pick ADMIN for itself in a real signup flow — see note in route.ts.
-export const roleSchema = z.enum(["ADMIN", "DIRECTEUR", "CHEF_CHANTIER", "MAGASINIER", "RH", "FINANCE", "PM", "ACHAT", "VIEWER"]).default("FINANCE");
+// The enum only validates that the requested role is a known role. It does NOT
+// grant it: privileged roles (ADMIN, DIRECTEUR, RH, PM, FINANCE) must be created
+// as PENDING and released by an approver on the backend — the client asking for
+// one only ever produces an approval request, never instant access. The default
+// is VIEWER (least privilege) so an omitted/absent role can never fall through to
+// anything sensitive.
+export const roleSchema = z.enum(["ADMIN", "DIRECTEUR", "CHEF_CHANTIER", "MAGASINIER", "RH", "FINANCE", "PM", "ACHAT", "VIEWER"]).default("VIEWER");
 
 export const registerSchema = z.object({
     email: emailSchema,
