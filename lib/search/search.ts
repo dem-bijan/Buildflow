@@ -1,5 +1,5 @@
 import { SEARCH_INDEX, SearchItem } from "./SearchIndex";
-import { isAllowed } from "@/lib/auth/permissions";
+import { isAllowed, type Role } from "@/lib/auth/permissions";
 
 function normalize(s: string): string {
     return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
@@ -85,7 +85,7 @@ export function search(query: string, role: string | undefined): SearchItem[] {
     if (!query.trim()) return [];
 
     return SEARCH_INDEX
-        .filter((item) => isAllowed(item.href, role as any))
+        .filter((item) => isAllowed(item.href, role as Role | undefined))
         .map((item) => ({ item, score: scoreMatch(query, item) }))
         .filter((r) => r.score > 0)
         .sort((a, b) => b.score - a.score)

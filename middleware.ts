@@ -1,19 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE } from "@/lib/session";
-import { jwtDecode } from "jwt-decode";
+import { jwtVerify, decodeJwt } from "jose";
 import { isAllowed, type Role } from "@/lib/auth/permissions";
 
 const PROTECTED_PREFIXES = ["/dashboard", "/account"];
 
-interface TokenPayload {
-    exp: number;
-    role: Role;
+// The same HS256 secret the backend signs with. Server-side only — never expose it
+// as NEXT_PUBLIC_. When set, the middleware verifies the token's *signature*, so a
+// hand-crafted cookie can't even reach the dashboard shell. When unset, it falls back
+// to an expiry-only decode; the backend still independently verifies every data call,
+// so this is a UX gate either way — verification just makes it a real one.
+const JWT_SECRET = process.env.JWT_SECRET;
+const secretKey = JWT_SECRET ? new TextEncoder().encode(JWT_SECRET) : null;
 
+interface TokenPayload {
+    exp?: number;
+    role?: Role;
 }
 
-function decodeToken(token: string): TokenPayload | null {
+async function readToken(token: string): Promise<TokenPayload | null> {
     try {
-        const payload = jwtDecode<TokenPayload>(token);
+        if (secretKey) {
+            // Verifies signature AND expiry; throws on either failure.
+            const { payload } = await jwtVerify(token, secretKey);
+            return payload as TokenPayload;
+        }
+        // No shared secret configured: decode without verifying, but still honour expiry.
+        const payload = decodeJwt(token) as TokenPayload;
         if (!payload.exp || Date.now() >= payload.exp * 1000) return null;
         return payload;
     } catch {
@@ -21,13 +34,10 @@ function decodeToken(token: string): TokenPayload | null {
     }
 }
 
-
-
-export function middleware(req: NextRequest) {
-
+export async function middleware(req: NextRequest) {
     const { pathname } = req.nextUrl;
     const token = req.cookies.get(SESSION_COOKIE)?.value;
-    const payload = token ? decodeToken(token) : null;
+    const payload = token ? await readToken(token) : null;
 
     const isProtected = PROTECTED_PREFIXES.some((p) => pathname.startsWith(p));
 
@@ -41,7 +51,7 @@ export function middleware(req: NextRequest) {
     }
 
     if (isProtected && payload && !isAllowed(pathname, payload.role)) {
-        return NextResponse.redirect(new URL("/dashboard?forbiden=1", req.url));
+        return NextResponse.redirect(new URL("/dashboard?forbidden=1", req.url));
     }
 
     const res = NextResponse.next();

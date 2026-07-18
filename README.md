@@ -47,9 +47,17 @@ architecture is built around.
 - `lib/authContext.tsx` (`AuthProvider`) calls `GET /api/auth/me` once on mount and
   exposes `{ user, loading, refetch }` via `useAuth()`. This is how every component
   knows who's logged in and what role they have.
-- Some roles (`ADMIN`, `DIRECTEUR`, `RH`, `PM`) require approval before they can log
-  in — registering as one of these creates a `PENDING` account that an approver has to
-  accept on `/dashboard/approbations` first.
+- Some roles (`ADMIN`, `DIRECTEUR`, `RH`, `PM`, `FINANCE`) require approval before they
+  can log in — registering as one of these creates a `PENDING` account that an approver
+  has to accept on `/dashboard/approbations` first. `FINANCE` is gated because it reaches
+  Trésorerie, Payments, Comptabilité and Salaires (payroll) — the same money/comp surface
+  the other gated roles touch, so it should not be self-service. This gate is enforced by
+  the backend; the frontend only reflects the `PENDING` result.
+- Who can approve whom is enforced by `Role.canApprove` on the backend: the management
+  roles (`ADMIN`/`DIRECTEUR`/`RH`/`PM`) approve their own tier, but a pending `FINANCE`
+  account may only be approved or rejected by `ADMIN`, `DIRECTEUR`, or `FINANCE`. A
+  `FINANCE` approver can act on `FINANCE` accounts only — nothing else — so it appears on
+  `/dashboard/approbations` but sees only pending `FINANCE` requests there.
 - Rate limiting (`lib/rateLimit.ts`) is applied per-IP on login, register, and the
   account-management endpoints. It's in-memory (per server process — fine at this
   app's scale, would need a shared store like Redis if you ever run multiple
@@ -58,15 +66,21 @@ architecture is built around.
 ## Authorization (who can see what)
 
 `lib/auth/permissions.ts` is a single map from route prefix → allowed roles
-(`ROUTE_PERMISSIONS`). It's the one source of truth, used in three places:
+(`ROUTE_PERMISSIONS`). It's the one source of truth, used in four places:
 
-1. **Sidebar** (`components/dashboard/SIdebar.tsx`) — filters nav items so a role never
+1. **Middleware** (`middleware.ts`) — the actual frontend enforcement point. Runs on
+   every `/dashboard/*` request at the edge: no valid session cookie → redirected to
+   the sign-in modal with a `next` param; valid session but a role the page doesn't
+   allow → redirected back to `/dashboard`. (It decodes the JWT without verifying the
+   signature — that's fine, because the backend independently verifies and authorizes
+   every data request; the middleware only decides what to *show*.)
+2. **Sidebar** (`components/dashboard/SIdebar.tsx`) — filters nav items so a role never
    even sees a link it can't use.
-2. **Dashboard overview** (`app/dashboard/DashboardClient.tsx`) — filters both which
+3. **Dashboard overview** (`app/dashboard/DashboardClient.tsx`) — filters both which
    domain summary cards render *and* which API calls get made, so a role that can't
    see e.g. Salaires never fires that request in the first place.
-3. **Route guard** (`components/RequireRole.tsx`) — redirects away from a page the
-   current role isn't allowed on.
+4. **Route guard** (`components/RequireRole.tsx`) — a client-side second layer,
+   currently mounted on the Approbations page.
 
 The backend enforces the same rules independently (`@PreAuthorize` on every
 controller) — the frontend checks exist for UX, not as the actual security boundary.
@@ -158,7 +172,7 @@ that isn't computed from the data above:**
   its inventory. There's nothing to fill in.
 - **DIRECTEUR** — creates Chantiers, otherwise mostly a read/oversight role across
   Suivi Chantiers, Trésorerie, Sous-traitance, Salaires, Annuaire, and Comptabilité;
-  also handles Approbations (accepting/rejecting pending `ADMIN`/`DIRECTEUR`/`RH`/`PM`
+  also handles Approbations (accepting/rejecting pending `ADMIN`/`DIRECTEUR`/`RH`/`PM`/`FINANCE`
   sign-ups).
 
 ## How a typical page works
@@ -260,3 +274,56 @@ lib/
 3. `npm run dev` → http://localhost:3000
 
 Useful commands: `npm run build`, `npm run lint`, `npx tsc --noEmit`.
+
+## Deploying to production (read before shipping)
+
+BuildFlow is two apps: this Next.js frontend (a BFF) and the Spring Boot backend
+(`../backend/buildflow-erp`). Both must be configured correctly or auth silently
+degrades or the app won't start. Work through this checklist.
+
+### Frontend environment (server-side vars — never prefix with `NEXT_PUBLIC_`)
+
+| Variable | Required | What happens if wrong/missing |
+| --- | --- | --- |
+| `BACKEND_URL` | Yes | The frontend can't reach the API; every data call 502s. Point it at the backend's real base URL (e.g. `https://api.buildflow.ma`). |
+| `JWT_SECRET` | Yes | **Must be byte-for-byte identical to the backend's `JWT_SECRET`.** If unset, `middleware.ts` falls back to decoding the session cookie *without verifying its signature* — a crafted cookie can then reach the dashboard shell (data calls still fail, because the backend verifies). If set but different from the backend's, every logged-in user gets bounced to sign-in. |
+| `NODE_ENV=production` | Yes | Set automatically by `next start`. It flips the session cookie to `Secure` (HTTPS-only). Don't run the prod server with `NODE_ENV` unset. |
+
+- **Serve over HTTPS.** The session cookie is `Secure` in prod, so it is *not* sent over
+  plain `http://` — the app will appear to "forget" logins on every request behind HTTP.
+
+### Backend environment (`../backend/buildflow-erp`)
+
+| Variable | Required | Notes |
+| --- | --- | --- |
+| `DB_URL` | Yes in prod | JDBC URL, e.g. `jdbc:postgresql://db-host:5432/buildflow`. |
+| `DB_USERNAME` | Yes in prod | |
+| `DB_PASSWORD` | Yes | **No default anymore** — the app fails to start if this is unset (this is intentional; there used to be a committed dev default). |
+| `JWT_SECRET` | Yes | No default; app won't start without it. Must be **≥ 32 bytes** (256-bit) or the HS256 key setup throws at boot. Must match the frontend's value. |
+| `SPRING_PROFILES_ACTIVE=prod` | Yes | Disables Swagger/OpenAPI and SQL logging. The bundled `docker-compose.yml` already defaults to `prod`. |
+| `app.cors.allowed-origin` | Yes | Must be the frontend's exact origin (e.g. `https://app.buildflow.ma`). Defaults to `http://localhost:3000`; a wrong value blocks the browser with CORS errors. |
+
+- **Database migrations run automatically** on backend startup via Liquibase (schema is
+  `validate`-only, so the migrations are the source of truth). This includes
+  `020-create-revoked-tokens-table` — the denylist that makes logout actually revoke a
+  token. Just make sure the DB user can create tables on first deploy.
+
+### Generating and sharing the JWT secret
+
+Generate one strong secret and give the **same** value to both apps:
+
+```bash
+openssl rand -base64 48   # ≥ 32 bytes; put the output in JWT_SECRET on BOTH sides
+```
+
+Because it's a symmetric (HS256) secret, treat it like a private key: rotating it
+invalidates every existing session on both apps at once.
+
+### Known limitations to be aware of when scaling
+
+- **Login/register rate limiting is in-memory, per process** (`lib/rateLimit.ts`). It
+  works on a single instance but resets on redeploy and isn't shared across instances —
+  if you run the frontend horizontally scaled, move it to a shared store (e.g. Redis).
+- **Sessions are stateless JWTs with a 24h lifetime.** Logout revokes immediately (via
+  the denylist above), but there's no refresh/rotation; a token remains valid until it
+  expires or is explicitly revoked.
