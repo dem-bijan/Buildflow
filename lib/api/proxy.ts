@@ -9,7 +9,7 @@ export async function proxyToBackend(req: NextRequest, backendPath: string) {
 
     const headers = new Headers(req.headers);
     headers.set("Authorization", `Bearer ${token || ""}`);
-    
+
     // Remove host header to avoid issues with the backend expecting its own host
     headers.delete("host");
 
@@ -35,7 +35,7 @@ export async function proxyToBackend(req: NextRequest, backendPath: string) {
         });
 
         // Try to parse JSON to return it properly formatted
-        let responseBody: any = null;
+        let responseBody: unknown = null;
         const text = await response.text();
         if (text) {
             try {

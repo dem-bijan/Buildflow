@@ -14,7 +14,7 @@ export default function CompteEnAttentePage() {
                 Un responsable doit valider votre demande avant que vous puissiez vous connecter.
             </p>
             <Link href="/" className="mt-2 px-5 py-2 text-sm font-medium text-white bg-accent rounded-lg hover:bg-accent/90 transition-colors">
-                Retour à l'accueil
+                Retour à l&apos;accueil
             </Link>
         </div>
     );
