@@ -84,7 +84,7 @@ export default function ApprobationsClient() {
             {pending.length === 0 ? (
                 <div className="px-4 py-12 text-center">
                     <p className="text-sm text-content-muted dark:text-content-muted-dark">
-                        Aucune demande en attente pour votre niveau d'accès.
+                        Aucune demande en attente pour votre niveau d&apos;accès.
                     </p>
                 </div>
             ) : (
