@@ -144,7 +144,7 @@ export default function AnnuairePage() {
                 className="w-full rounded-lg border border-edge-subtle px-3 py-2"
               >
                 <option value="OUVRIER">Ouvrier</option>
-                <option value="CHEF_EQUIPE">Chef d'équipe</option>
+                <option value="CHEF_EQUIPE">Chef d&apos;équipe</option>
                 <option value="CONDUCTEUR_TRAVAUX">Conducteur de travaux</option>
                 <option value="PM">Chef de projet</option>
                 <option value="ACHAT">Achats</option>
