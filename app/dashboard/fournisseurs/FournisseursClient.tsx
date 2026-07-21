@@ -29,7 +29,7 @@ export default function FournisseursClient() {
     setError(null);
     try {
       const data = await fetchFournisseurs();
-      
+
       const mapped: Fournisseur[] = (data || []).map(f => ({
         ...f,
         totalAchatsAnnee: f.totalAchatsAnnee ?? 0,
@@ -362,14 +362,14 @@ function CreateFournisseurForm({ onCreated, onCancel }: { onCreated: () => void;
         </label>
         <label className="space-y-1">
           <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Statut</span>
-          <select className={inputCls} value={form.statut} onChange={e => set("statut", e.target.value as any)}>
+          <select className={inputCls} value={form.statut} onChange={e => set("statut", e.target.value as "ACTIF" | "INACTIF" | "BLACKLISTE")}>
             <option value="ACTIF">Actif</option>
             <option value="INACTIF">Inactif</option>
             <option value="BLACKLISTE">Blacklisté</option>
           </select>
         </label>
         <div className="space-y-1 lg:col-span-2">
-          <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Catégories d'articles</span>
+          <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Catégories d&apos;articles</span>
           <div className="flex gap-2">
             <input className={inputCls} value={categorieInput} onChange={e => setCategorieInput(e.target.value)} onKeyDown={e => e.key === "Enter" && (e.preventDefault(), addCategorie())} placeholder="Ex: Ciment" />
             <button type="button" onClick={addCategorie} className="px-3 py-2 text-xs font-semibold text-white bg-accent rounded-lg hover:bg-accent/90 shrink-0 transition-colors">+</button>
