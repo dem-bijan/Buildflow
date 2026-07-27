@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/authContext";
+import { FadeSwap, Skeleton, TableSkeleton } from "@/components/Functions";
 
 interface PendingUser {
     id: string;
@@ -49,16 +50,6 @@ export default function ApprobationsClient() {
         }
     }
 
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-[40vh]">
-                <p className="text-sm text-content-muted dark:text-content-muted-dark animate-pulse">
-                    Chargement des demandes en attente…
-                </p>
-            </div>
-        );
-    }
-
     if (error) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[40vh] gap-4">
@@ -72,6 +63,8 @@ export default function ApprobationsClient() {
 
     return (
         <div className="py-6 px-4 sm:px-6 lg:px-8">
+            <FadeSwap show={loading} skeleton={<ApprobationsSkeleton />}>
+            <>
             <div className="mb-6">
                 <h1 className="text-xl sm:text-2xl font-bold text-content-primary dark:text-content-primary-dark">
                     Approbations en attente
@@ -140,6 +133,24 @@ export default function ApprobationsClient() {
                     </table>
                 </div>
             )}
+            </>
+            </FadeSwap>
         </div>
+    );
+}
+
+function ApprobationsSkeleton() {
+    return (
+        <>
+            <div className="mb-6">
+                <h1 className="text-xl sm:text-2xl font-bold text-content-primary dark:text-content-primary-dark">
+                    Approbations en attente
+                </h1>
+                <Skeleton className="h-4 w-64 mt-2" />
+            </div>
+            <div className="bg-surface-page dark:bg-surface-page-dark rounded-xl border border-edge-subtle dark:border-edge-subtle-dark overflow-hidden">
+                <TableSkeleton columns={4} rows={4} />
+            </div>
+        </>
     );
 }

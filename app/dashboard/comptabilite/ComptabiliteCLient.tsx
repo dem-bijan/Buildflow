@@ -14,6 +14,11 @@ import {
     StackedBarChart,
     HorizontalBarChart,
     RefreshButton,
+    FadeSwap,
+    Skeleton,
+    KpiGridSkeleton,
+    ChartCardSkeleton,
+    TableSkeleton,
 } from "@/components/Functions";
 
 export default function ComptabiliteClient() {
@@ -45,21 +50,6 @@ export default function ComptabiliteClient() {
         () => hydrate<EcritureComptable, ComptabiliteHydrated>(ecritures, comptabiliteHydrationConfig),
         [ecritures]
     );
-
-    if (loading && ecritures.length === 0) {
-        return (
-            <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-                <div className="relative w-12 h-12">
-                    <div className="absolute inset-0 rounded-full border-4 border-accent/20" />
-                    <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-accent animate-spin" />
-                </div>
-
-                <p className="text-sm text-content-muted dark:text-content-muted-dark animate-pulse">
-                    Chargement…
-                </p>
-            </div>
-        );
-    }
 
     if (error && ecritures.length === 0) {
         return (
@@ -109,8 +99,10 @@ export default function ComptabiliteClient() {
         : ecritures;
 
     return (
-        <ChartJsLoader>
-            <div className="bg-surface-page dark:bg-surface-page-dark min-h-full py-6 px-4 sm:px-6 lg:px-8">
+        <div className="bg-surface-page dark:bg-surface-page-dark min-h-full py-6 px-4 sm:px-6 lg:px-8">
+            <FadeSwap show={loading && ecritures.length === 0} skeleton={<ComptabiliteSkeleton />}>
+            <ChartJsLoader>
+                <>
 
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
                     <div>
@@ -169,8 +161,50 @@ export default function ComptabiliteClient() {
                     </Card>
                 </Section>
 
+                </>
+            </ChartJsLoader>
+            </FadeSwap>
+        </div>
+    );
+}
+
+function ComptabiliteSkeleton() {
+    return (
+        <>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+                <div>
+                    <h1 className="text-xl sm:text-2xl font-bold text-content-primary dark:text-content-primary-dark">
+                        Tableau de bord — Comptabilité
+                    </h1>
+                    <Skeleton className="h-4 w-52 mt-2" />
+                </div>
+                <Skeleton className="h-9 w-28 rounded-lg" />
             </div>
-        </ChartJsLoader>
+
+            <Section title="Vue d'ensemble des écritures">
+                <KpiGridSkeleton count={4} />
+            </Section>
+
+            <Section title="Mouvements par journal">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <ChartCardSkeleton title="Volume total par journal" variant="hbar" rows={5} />
+                    <ChartCardSkeleton title="Débits vs crédits par journal" variant="bar" />
+                </div>
+            </Section>
+
+            <Section title="Top comptes débités">
+                <ChartCardSkeleton title="Comptes les plus mouvementés (débit)" variant="hbar" rows={6} />
+            </Section>
+
+            <Section title="Liste des écritures">
+                <Card>
+                    <div className="px-4 pt-4 pb-3">
+                        <Skeleton className="h-9 w-full sm:w-80 rounded-lg" />
+                    </div>
+                    <TableSkeleton columns={6} rows={6} />
+                </Card>
+            </Section>
+        </>
     );
 }
 

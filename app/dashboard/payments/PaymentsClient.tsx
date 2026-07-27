@@ -26,6 +26,12 @@ import {
   DonutChart,
   RefreshButton,
   PrimaryActionButton,
+  FadeSwap,
+  Skeleton,
+  KpiGridSkeleton,
+  ChartCardSkeleton,
+  PaymentProgressSkeleton,
+  TableSkeleton,
 } from "@/components/Functions";
 
 export default function PaymentsClient() {
@@ -176,20 +182,6 @@ export default function PaymentsClient() {
 
   const h = useMemo(() => hydrate<Paiement, PaiementsHydrated>(paiements, paiementsHydrationConfig), [paiements]);
 
-  if (loading && paiements.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <div className="relative w-12 h-12">
-          <div className="absolute inset-0 rounded-full border-4 border-accent/20" />
-          <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-accent animate-spin" />
-        </div>
-        <p className="text-sm text-content-muted dark:text-content-muted-dark animate-pulse">
-          Chargement…
-        </p>
-      </div>
-    );
-  }
-
   if (error && paiements.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-5">
@@ -213,8 +205,11 @@ export default function PaymentsClient() {
     "w-full px-3 py-2 text-sm rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow";
 
   return (
-    <ChartJsLoader>
-      <div className="bg-surface-page dark:bg-surface-page-dark min-h-full py-6 px-4 sm:px-6 lg:px-8">
+    <>
+    <div className="bg-surface-page dark:bg-surface-page-dark min-h-full py-6 px-4 sm:px-6 lg:px-8">
+      <FadeSwap show={loading && paiements.length === 0} skeleton={<PaymentsSkeleton />}>
+      <ChartJsLoader>
+        <>
 
         {/* Header */}
 
@@ -491,18 +486,72 @@ export default function PaymentsClient() {
             />
           </Card>
         </Section>
+
+        </>
+      </ChartJsLoader>
+      </FadeSwap>
+    </div>
+
+    {selectedPaiement && (
+      <PaiementDetailsModal
+        paiement={selectedPaiement}
+        onClose={() => setSelectedPaiement(null)}
+        onValidate={handleValidate}
+        onPay={handlePay}
+        loading={actionLoading}
+      />
+    )}
+    </>
+  );
+}
+
+function PaymentsSkeleton() {
+  return (
+    <>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-content-primary dark:text-content-primary-dark">
+            Tableau de bord — Paiements
+          </h1>
+          <Skeleton className="h-4 w-56 mt-2" />
+        </div>
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-9 w-28 rounded-lg" />
+          <Skeleton className="h-9 w-44 rounded-lg" />
+        </div>
       </div>
 
-      {selectedPaiement && (
-        <PaiementDetailsModal
-          paiement={selectedPaiement}
-          onClose={() => setSelectedPaiement(null)}
-          onValidate={handleValidate}
-          onPay={handlePay}
-          loading={actionLoading}
-        />
-      )}
-    </ChartJsLoader>
+      <Section title="Vue d'ensemble">
+        <KpiGridSkeleton count={4} />
+      </Section>
+
+      <Section title="Avancement global">
+        <PaymentProgressSkeleton />
+      </Section>
+
+      <Section title="Répartition par type">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <ChartCardSkeleton title="Montants par type de paiement" variant="pie" />
+          <ChartCardSkeleton title="Payé vs restant par type" variant="bar" />
+        </div>
+      </Section>
+
+      <Section title="Statuts & échéances proches">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <ChartCardSkeleton title="Statuts des paiements" className="sm:col-span-1" variant="donut" />
+          <ChartCardSkeleton title="Prochaines échéances à régler" className="sm:col-span-2" variant="hbar" rows={5} />
+        </div>
+      </Section>
+
+      <Section title="Liste des paiements">
+        <Card>
+          <div className="px-4 pt-4 pb-3">
+            <Skeleton className="h-9 w-full sm:w-80 rounded-lg" />
+          </div>
+          <TableSkeleton columns={10} rows={6} />
+        </Card>
+      </Section>
+    </>
   );
 }
 

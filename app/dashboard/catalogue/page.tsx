@@ -3,7 +3,16 @@
 import { useState, useEffect, useCallback, type FormEvent } from "react";
 import { ArticleForm, createArticle, fetchArticles, type CreateArticleDTO } from "@/lib/api/articles";
 import CatalogueClient from "./CatalogueClient";
-import { PrimaryActionButton } from "@/components/Functions";
+import {
+  PrimaryActionButton,
+  FadeSwap,
+  Skeleton,
+  KpiGridSkeleton,
+  ChartCardSkeleton,
+  TableSkeleton,
+  Section,
+  Card,
+} from "@/components/Functions";
 
 import type { Article } from "@/components/functions2";
 import {
@@ -136,20 +145,6 @@ export default function CataloguePage() {
     }
   };
 
-  if (loading && articles.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <div className="relative w-12 h-12">
-          <div className="absolute inset-0 rounded-full border-4 border-accent/20" />
-          <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-accent animate-spin" />
-        </div>
-        <p className="text-sm text-content-muted dark:text-content-muted-dark animate-pulse">
-          Chargement…
-        </p>
-      </div>
-    );
-  }
-
   if (error && articles.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-5">
@@ -170,6 +165,8 @@ export default function CataloguePage() {
   }
   return (
     <div className="space-y-6">
+      <FadeSwap show={loading && articles.length === 0} skeleton={<CatalogueSkeleton />}>
+      <>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-xl font-semibold text-content-primary dark:text-content-primary-dark">Catalogue</h2>
@@ -274,6 +271,55 @@ export default function CataloguePage() {
       )}
 
       <CatalogueClient articles={articles} onRefresh={load} refreshing={loading} />
+      </>
+      </FadeSwap>
+    </div>
+  );
+}
+
+function CatalogueSkeleton() {
+  return (
+    <div className="bg-surface-page dark:bg-surface-page-dark min-h-full py-6 px-4 sm:px-6 lg:px-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-content-primary dark:text-content-primary-dark">
+            Tableau de bord — Catalogue
+          </h1>
+          <Skeleton className="h-4 w-56 mt-2" />
+        </div>
+        <Skeleton className="h-9 w-28 rounded-lg" />
+      </div>
+
+      <Section title="Vue d'ensemble">
+        <KpiGridSkeleton count={4} />
+      </Section>
+
+      <Section title="Répartition du catalogue">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <ChartCardSkeleton title="Articles par catégorie" variant="pie" />
+          <ChartCardSkeleton title="Prix de référence moyen par catégorie (MAD HT)" variant="hbar" rows={5} />
+        </div>
+      </Section>
+
+      <Section title="Statuts & prix">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <ChartCardSkeleton title="Actifs / Inactifs" className="sm:col-span-1" variant="donut" />
+          <ChartCardSkeleton title="Top articles par prix de référence" className="sm:col-span-2" variant="hbar" rows={5} />
+        </div>
+      </Section>
+
+      <Section title="Fournisseurs préférentiels">
+        <ChartCardSkeleton title="Nombre d'articles couverts par fournisseur préférentiel" variant="hbar" rows={5} />
+      </Section>
+
+      <Section title="Liste des articles">
+        <Card>
+          <div className="px-4 pt-4 pb-3">
+            <Skeleton className="h-9 w-full sm:w-80 rounded-lg" />
+          </div>
+          <TableSkeleton columns={7} rows={6} />
+        </Card>
+      </Section>
     </div>
   );
 }

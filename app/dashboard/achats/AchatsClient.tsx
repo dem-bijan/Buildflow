@@ -22,6 +22,11 @@ import {
   LineChart,
   RefreshButton,
   PrimaryActionButton,
+  FadeSwap,
+  Skeleton,
+  KpiGridSkeleton,
+  ChartCardSkeleton,
+  TableSkeleton,
 } from "@/components/Functions";
 
 export default function AchatsClient() {
@@ -172,20 +177,6 @@ export default function AchatsClient() {
 
   const h = useMemo(() => hydrate<Achat, AchatsHydrated>(achats, achatsHydrationConfig), [achats]);
 
-  if (loading && achats.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <div className="relative w-12 h-12">
-          <div className="absolute inset-0 rounded-full border-4 border-accent/20" />
-          <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-accent animate-spin" />
-        </div>
-        <p className="text-sm text-content-muted dark:text-content-muted-dark animate-pulse">
-          Chargement…
-        </p>
-      </div>
-    );
-  }
-
   if (error && achats.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-5">
@@ -206,8 +197,9 @@ export default function AchatsClient() {
   }
 
   return (
-    <ChartJsLoader>
-      <div className="bg-surface-page dark:bg-surface-page-dark min-h-full py-6 px-4 sm:px-6 lg:px-8">
+    <div className="bg-surface-page dark:bg-surface-page-dark min-h-full py-6 px-4 sm:px-6 lg:px-8">
+      <FadeSwap show={loading && achats.length === 0} skeleton={<AchatsSkeleton />}>
+        <ChartJsLoader>
 
         {/* ── Header ──────────────────────────────────────────────────── */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
@@ -559,8 +551,62 @@ export default function AchatsClient() {
             <AchatsTable achats={filtered} />
           </Card>
         </Section>
+        </ChartJsLoader>
+      </FadeSwap>
+    </div>
+  );
+}
+
+function AchatsSkeleton() {
+  return (
+    <>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-content-primary dark:text-content-primary-dark">
+            Achats — Commandes
+          </h1>
+          <Skeleton className="h-4 w-40 mt-2" />
+        </div>
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-9 w-28 rounded-lg" />
+          <Skeleton className="h-9 w-40 rounded-lg" />
+        </div>
       </div>
-    </ChartJsLoader>
+
+      <Section title="Vue d'ensemble">
+        <KpiGridSkeleton count={5} />
+      </Section>
+
+      <Section title="Analyse financière">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <ChartCardSkeleton title="HT vs TVA par commande (MAD)" variant="bar" />
+          <ChartCardSkeleton title="Tendance HT vs TVA" variant="line" />
+        </div>
+      </Section>
+
+      <Section title="Répartition des achats">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <ChartCardSkeleton title="Montants TTC par fournisseur" variant="pie" />
+          <ChartCardSkeleton title="Montants TTC par chantier" variant="hbar" rows={4} />
+        </div>
+      </Section>
+
+      <Section title="Statuts & Articles">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <ChartCardSkeleton title="Statuts des commandes" className="sm:col-span-1" variant="donut" />
+          <ChartCardSkeleton title="Top articles commandés (Valeur)" className="sm:col-span-2" variant="hbar" rows={5} />
+        </div>
+      </Section>
+
+      <Section title="Liste des commandes">
+        <Card>
+          <div className="px-4 pt-4 pb-3">
+            <Skeleton className="h-9 w-full sm:w-80 rounded-lg" />
+          </div>
+          <TableSkeleton columns={8} rows={6} />
+        </Card>
+      </Section>
+    </>
   );
 }
 

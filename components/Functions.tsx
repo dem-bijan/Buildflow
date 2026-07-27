@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, Fragment } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import { AchatStatus, Achat } from "@/app/utils/types";
 import { fmt } from "@/app/utils/format";
 
@@ -613,6 +614,160 @@ export function DonutChart({ data }: { data: StatusPoint[] }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // INTERNAL HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 12. LOADING SKELETONS
+//    Mirror the exact dimensions/layout of KpiGrid / ChartCard / tables so
+//    swapping loading → real content never shifts the page (no "pop").
+//    Pages compose these the same way they compose the real components,
+//    then crossfade between the two with FadeSwap below.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const SKELETON_WIDTHS = ["92%", "78%", "64%", "50%", "84%", "58%"] as const;
+
+export function Skeleton({ className = "", style }: { className?: string; style?: React.CSSProperties }) {
+    return <div style={style} className={`animate-pulse rounded-md bg-surface-raised dark:bg-surface-raised-dark ${className}`} />;
+}
+
+export function PaymentProgressSkeleton() {
+    return (
+        <Card className="p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+                <Skeleton className="h-4 w-40" />
+                <Skeleton className="h-4 w-40" />
+            </div>
+            <Skeleton className="h-2.5 w-full rounded-full" />
+            <Skeleton className="h-3 w-56 mt-2" />
+        </Card>
+    );
+}
+
+export function KpiGridSkeleton({ count = 5 }: { count?: number }) {
+    return (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            {Array.from({ length: count }).map((_, i) => (
+                <Card key={i} className="flex flex-col p-4 justify-center items-center gap-2">
+                    <Skeleton className="h-2.5 w-16" />
+                    <Skeleton className="h-5 w-20" />
+                    <Skeleton className="h-2.5 w-12" />
+                </Card>
+            ))}
+        </div>
+    );
+}
+
+export function ChartCardSkeleton({
+    title,
+    className = "",
+    variant = "bar",
+    rows = 4,
+}: {
+    title: string;
+    className?: string;
+    variant?: "bar" | "line" | "pie" | "donut" | "hbar";
+    rows?: number;
+}) {
+    return (
+        <ChartCard title={title} className={className}>
+            {(variant === "bar" || variant === "line") && (
+                <>
+                    <div className="flex gap-4 mb-3">
+                        <Skeleton className="h-3 w-14" />
+                        <Skeleton className="h-3 w-14" />
+                    </div>
+                    <Skeleton className="h-48 sm:h-56 w-full" />
+                </>
+            )}
+            {variant === "pie" && (
+                <>
+                    <div className="h-44 sm:h-52 mb-4 flex items-center justify-center">
+                        <Skeleton className="w-32 h-32 sm:w-40 sm:h-40 rounded-full" />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                        {Array.from({ length: rows }).map((_, i) => (
+                            <Skeleton key={i} className="h-3" style={{ width: SKELETON_WIDTHS[i % SKELETON_WIDTHS.length] }} />
+                        ))}
+                    </div>
+                </>
+            )}
+            {variant === "donut" && (
+                <>
+                    <div className="h-40 flex items-center justify-center">
+                        <Skeleton className="w-28 h-28 rounded-full" />
+                    </div>
+                    <div className="flex flex-col gap-2 mt-3">
+                        {Array.from({ length: rows }).map((_, i) => (
+                            <div key={i} className="flex items-center justify-between">
+                                <Skeleton className="h-3 w-20" />
+                                <Skeleton className="h-3 w-8" />
+                            </div>
+                        ))}
+                    </div>
+                </>
+            )}
+            {variant === "hbar" && (
+                <div className="flex flex-col justify-center gap-3" style={{ minHeight: rows * 46 + 32 }}>
+                    {Array.from({ length: rows }).map((_, i) => (
+                        <Skeleton key={i} className="h-6" style={{ width: SKELETON_WIDTHS[i % SKELETON_WIDTHS.length] }} />
+                    ))}
+                </div>
+            )}
+        </ChartCard>
+    );
+}
+
+export function TableSkeleton({ columns = 6, rows = 6 }: { columns?: number; rows?: number }) {
+    return (
+        <div className="overflow-x-auto">
+            <table className="w-full text-sm border-collapse min-w-[900px]">
+                <thead>
+                    <tr className="border-b-2 border-edge-default dark:border-edge-default-dark">
+                        {Array.from({ length: columns }).map((_, i) => (
+                            <th key={i} className="text-left px-3 py-2">
+                                <Skeleton className="h-2.5 w-16" />
+                            </th>
+                        ))}
+                    </tr>
+                </thead>
+                <tbody>
+                    {Array.from({ length: rows }).map((_, r) => (
+                        <tr key={r} className="border-b border-edge-subtle dark:border-edge-subtle-dark">
+                            {Array.from({ length: columns }).map((_, c) => (
+                                <td key={c} className="px-3 py-3">
+                                    <Skeleton className="h-3 w-full max-w-[90px]" />
+                                </td>
+                            ))}
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 13. FADE SWAP
+//    One crossfade gate for a whole page section instead of each chart/card
+//    fading in independently — that's what causes the staggered "pop-in"
+//    effect when a page has several async pieces. Skeleton and content share
+//    the same layout, so only opacity changes: no layout shift either.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function FadeSwap({ show, skeleton, children }: { show: boolean; skeleton: React.ReactNode; children: React.ReactNode }) {
+    return (
+        <AnimatePresence mode="wait" initial={false}>
+            {show ? (
+                <motion.div key="skeleton" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2, ease: "easeInOut" }}>
+                    {skeleton}
+                </motion.div>
+            ) : (
+                <motion.div key="content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2, ease: "easeInOut" }}>
+                    {children}
+                </motion.div>
+            )}
+        </AnimatePresence>
+    );
+}
 
 function SeriesLegend({ series }: { series: ChartSeries[] }) {
     return (

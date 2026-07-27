@@ -71,7 +71,7 @@ export async function PATCH(req: NextRequest) {
     // must replace the session cookie with the freshly issued one.
     const token2 = data?.data?.accessToken ?? data?.accessToken;
     if (!token2) {
-        logServerError("auth.change_email.missing_token_in_response", { status: backendRes.status });
+        logServerError("Error", { status: backendRes.status });
         return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 502 });
     }
     await setSessionCookie(token2);
