@@ -13,6 +13,10 @@ import {
   KpiGrid,
   RefreshButton,
   PrimaryActionButton,
+  FadeSwap,
+  Skeleton,
+  KpiGridSkeleton,
+  TableSkeleton,
 } from "@/components/Functions";
 import type { KpiItem } from "@/components/Functions";
 
@@ -63,20 +67,6 @@ export default function SousTraitantsClient() {
     ];
   }, [sousTraitants]);
 
-  if (loading && sousTraitants.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <div className="relative w-12 h-12">
-          <div className="absolute inset-0 rounded-full border-4 border-accent/20" />
-          <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-accent animate-spin" />
-        </div>
-        <p className="text-sm text-content-muted dark:text-content-muted-dark animate-pulse">
-          Chargement…
-        </p>
-      </div>
-    );
-  }
-
   if (error && sousTraitants.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-5">
@@ -98,6 +88,8 @@ export default function SousTraitantsClient() {
 
   return (
     <div className="bg-surface-page dark:bg-surface-page-dark min-h-full py-6 px-4 sm:px-6 lg:px-8">
+      <FadeSwap show={loading && sousTraitants.length === 0} skeleton={<SousTraitantsSkeleton />}>
+      <>
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
@@ -141,7 +133,41 @@ export default function SousTraitantsClient() {
           <SousTraitantsTable sousTraitants={filtered} />
         </Card>
       </Section>
+      </>
+      </FadeSwap>
     </div>
+  );
+}
+
+function SousTraitantsSkeleton() {
+  return (
+    <>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-content-primary dark:text-content-primary-dark">
+            Sous-traitants
+          </h1>
+          <Skeleton className="h-4 w-56 mt-2" />
+        </div>
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-9 w-28 rounded-lg" />
+          <Skeleton className="h-9 w-48 rounded-lg" />
+        </div>
+      </div>
+
+      <Section title="Vue d'ensemble">
+        <KpiGridSkeleton count={3} />
+      </Section>
+
+      <Section title="Liste des sous-traitants">
+        <Card>
+          <div className="px-4 pt-4 pb-3">
+            <Skeleton className="h-9 w-full sm:w-80 rounded-lg" />
+          </div>
+          <TableSkeleton columns={8} rows={6} />
+        </Card>
+      </Section>
+    </>
   );
 }
 

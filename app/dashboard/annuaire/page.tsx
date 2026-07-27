@@ -3,7 +3,16 @@ import { fetchChantiers, type ChantierDTO } from "@/lib/api/chantier";
 import { useState, useEffect, useCallback, type FormEvent } from "react";
 import { createEmploye, fetchEmployes, type CreateEmployeDTO } from "@/lib/api/employes";
 import AnnuaireClient from "./AnnuaireClient";
-import { PrimaryActionButton } from "@/components/Functions";
+import {
+  PrimaryActionButton,
+  FadeSwap,
+  Skeleton,
+  KpiGridSkeleton,
+  ChartCardSkeleton,
+  TableSkeleton,
+  Section,
+  Card,
+} from "@/components/Functions";
 import type { Employe } from "@/components/functions2";
 
 const emptyEmployeForm: CreateEmployeDTO = {
@@ -79,20 +88,6 @@ export default function AnnuairePage() {
     }
   };
 
-  if (loading && employes.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <div className="relative w-12 h-12">
-          <div className="absolute inset-0 rounded-full border-4 border-accent/20" />
-          <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-accent animate-spin" />
-        </div>
-        <p className="text-sm text-content-muted dark:text-content-muted-dark animate-pulse">
-          Chargement…
-        </p>
-      </div>
-    );
-  }
-
   if (error && employes.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-5">
@@ -114,6 +109,8 @@ export default function AnnuairePage() {
 
   return (
     <div className="space-y-6">
+      <FadeSwap show={loading && employes.length === 0} skeleton={<AnnuaireSkeleton />}>
+      <>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-xl font-semibold text-content-primary dark:text-content-primary-dark">Annuaire RH</h2>
@@ -190,6 +187,55 @@ export default function AnnuairePage() {
       )}
 
       <AnnuaireClient employes={employes} onRefresh={load} refreshing={loading} />
+      </>
+      </FadeSwap>
+    </div>
+  );
+}
+
+function AnnuaireSkeleton() {
+  return (
+    <div className="bg-surface-page dark:bg-surface-page-dark min-h-full py-6 px-4 sm:px-6 lg:px-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-content-primary dark:text-content-primary-dark">
+            Tableau de bord — Annuaire RH
+          </h1>
+          <Skeleton className="h-4 w-64 mt-2" />
+        </div>
+        <Skeleton className="h-9 w-28 rounded-lg" />
+      </div>
+
+      <Section title="Vue d'ensemble">
+        <KpiGridSkeleton count={4} />
+      </Section>
+
+      <Section title="Masse salariale & effectifs">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <ChartCardSkeleton title="Masse salariale brute par rôle" variant="pie" />
+          <ChartCardSkeleton title="Effectifs par département" variant="hbar" rows={5} />
+        </div>
+      </Section>
+
+      <Section title="Statuts & contrats">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <ChartCardSkeleton title="Statuts des employés" variant="donut" />
+          <ChartCardSkeleton title="Répartition par type de contrat" variant="pie" />
+        </div>
+      </Section>
+
+      <Section title="Ancienneté">
+        <ChartCardSkeleton title="Top 8 — ancienneté (années)" variant="hbar" rows={8} />
+      </Section>
+
+      <Section title="Liste des employés">
+        <Card>
+          <div className="px-4 pt-4 pb-3">
+            <Skeleton className="h-9 w-full sm:w-80 rounded-lg" />
+          </div>
+          <TableSkeleton columns={7} rows={6} />
+        </Card>
+      </Section>
     </div>
   );
 }

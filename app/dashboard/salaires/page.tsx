@@ -3,7 +3,17 @@
 import { useState, useEffect, useCallback, type FormEvent } from "react";
 import { createSalarie, fetchSalaires, type CreateSalarieDTO } from "@/lib/api/salaires";
 import SalairesClient from "./SalairesClient";
-import { PrimaryActionButton } from "@/components/Functions";
+import {
+  PrimaryActionButton,
+  FadeSwap,
+  Skeleton,
+  KpiGridSkeleton,
+  ChartCardSkeleton,
+  PaymentProgressSkeleton,
+  TableSkeleton,
+  Section,
+  Card,
+} from "@/components/Functions";
 import type { SalarieDTO } from "@/lib/api/salaires";
 import { fetchEmployes, type EmployeDTO } from "@/lib/api/employes";
 import { fetchChantiers, type ChantierDTO } from "@/lib/api/chantier";
@@ -97,20 +107,6 @@ export default function SalairesPage() {
     }
   };
 
-  if (loading && salaireData.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <div className="relative w-12 h-12">
-          <div className="absolute inset-0 rounded-full border-4 border-accent/20" />
-          <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-accent animate-spin" />
-        </div>
-        <p className="text-sm text-content-muted dark:text-content-muted-dark animate-pulse">
-          Chargement…
-        </p>
-      </div>
-    );
-  }
-
   if (error && salaireData.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-5">
@@ -132,6 +128,8 @@ export default function SalairesPage() {
 
   return (
     <div className="space-y-6">
+      <FadeSwap show={loading && salaireData.length === 0} skeleton={<SalairesSkeleton />}>
+      <>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-xl font-semibold text-content-primary dark:text-content-primary-dark">Salaires</h2>
@@ -193,6 +191,55 @@ export default function SalairesPage() {
       )}
 
       <SalairesClient fiches={salaireData} onRefresh={load} refreshing={loading} />
+      </>
+      </FadeSwap>
+    </div>
+  );
+}
+
+function SalairesSkeleton() {
+  return (
+    <div className="bg-surface-page dark:bg-surface-page-dark min-h-full py-6 px-4 sm:px-6 lg:px-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-content-primary dark:text-content-primary-dark">
+            Tableau de bord — Salaires
+          </h1>
+          <Skeleton className="h-4 w-56 mt-2" />
+        </div>
+        <Skeleton className="h-9 w-28 rounded-lg" />
+      </div>
+
+      <Section title="Vue d'ensemble">
+        <KpiGridSkeleton count={4} />
+      </Section>
+
+      <Section title="Avancement des virements">
+        <PaymentProgressSkeleton />
+      </Section>
+
+      <Section title="Répartition de la masse salariale">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <ChartCardSkeleton title="Masse brute par département" variant="pie" />
+          <ChartCardSkeleton title="Gains vs retenues par employé" variant="bar" />
+        </div>
+      </Section>
+
+      <Section title="Statuts & top salaires">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <ChartCardSkeleton title="Statuts des fiches" className="sm:col-span-1" variant="donut" />
+          <ChartCardSkeleton title="Salaires nets" className="sm:col-span-2" variant="hbar" rows={6} />
+        </div>
+      </Section>
+
+      <Section title="Liste des fiches de paie">
+        <Card>
+          <div className="px-4 pt-4 pb-3">
+            <Skeleton className="h-9 w-full sm:w-80 rounded-lg" />
+          </div>
+          <TableSkeleton columns={7} rows={6} />
+        </Card>
+      </Section>
     </div>
   );
 }
