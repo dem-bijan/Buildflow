@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
         res.headers.set("set-cookie", forwardedCookie);
         return res;
     } else {
-        logServerError("auth.login.missing_token_in_response", { status: backendRes.status });
+        logServerError("Error", { status: backendRes.status });
         return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 502 });
     }
 

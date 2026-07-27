@@ -30,7 +30,7 @@ import {
   paiementsHydrationConfig,
 } from "@/components/functions2";
 
-import { ChartJsLoader, Card, HorizontalBarChart, DonutChart } from "@/components/Functions";
+import { ChartJsLoader, Card, HorizontalBarChart, DonutChart, FadeSwap, Skeleton } from "@/components/Functions";
 
 import { fetchAchats } from "@/lib/api/achats";
 import { fetchFournisseurs } from "@/lib/api/fournisseurs";
@@ -371,19 +371,7 @@ export default function DashboardClient() {
     },
   ].filter((card) => isAllowed(card.href, role));
 
-  if (loading && achats.length === 0 && fournisseurs.length === 0 && chantiers.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <div className="relative w-12 h-12">
-          <div className="absolute inset-0 rounded-full border-4 border-accent/20" />
-          <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-accent animate-spin" />
-        </div>
-        <p className="text-sm text-content-muted dark:text-content-muted-dark animate-pulse">
-          Chargement du tableau de bord…
-        </p>
-      </div>
-    );
-  }
+  const showSkeleton = loading && achats.length === 0 && fournisseurs.length === 0 && chantiers.length === 0;
 
   if (error && achats.length === 0 && fournisseurs.length === 0) {
     return (
@@ -405,12 +393,13 @@ export default function DashboardClient() {
   }
 
   return (
+    <div className="px-4 py-6 sm:px-6 lg:px-8">
+      <FadeSwap show={showSkeleton} skeleton={<DashboardSkeleton />}>
     <ChartJsLoader>
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.25 }}
-        className="px-4 py-6 sm:px-6 lg:px-8"
       >
         <div className="mb-6">
           <h1 className="text-xl sm:text-2xl font-bold text-content-primary dark:text-content-primary-dark">
@@ -447,6 +436,44 @@ export default function DashboardClient() {
         )}
       </motion.div>
     </ChartJsLoader>
+      </FadeSwap>
+    </div>
+  );
+}
+
+function DashboardSkeleton() {
+  return (
+    <>
+      <div className="mb-6">
+        <h1 className="text-xl sm:text-2xl font-bold text-content-primary dark:text-content-primary-dark">
+          Vue d&apos;ensemble
+        </h1>
+        <Skeleton className="h-4 w-56 mt-2" />
+      </div>
+
+      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4 mb-8">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="dark:bg-surface-card-dark bg-surface-card rounded-lg border border-edge-default dark:border-zinc-700 shadow-md p-3 h-25 flex flex-col justify-between">
+            <Skeleton className="h-2.5 w-20" />
+            <Skeleton className="h-5 w-16" />
+            <Skeleton className="h-2.5 w-24" />
+          </div>
+        ))}
+      </section>
+
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <Card key={i} className="p-4 sm:p-5">
+            <div className="flex items-center justify-between mb-1">
+              <Skeleton className="h-3 w-24" />
+            </div>
+            <Skeleton className="h-5 w-16 mt-2" />
+            <Skeleton className="h-3 w-28 mt-2 mb-3" />
+            <Skeleton className="h-24 w-full rounded-full" />
+          </Card>
+        ))}
+      </section>
+    </>
   );
 }
 

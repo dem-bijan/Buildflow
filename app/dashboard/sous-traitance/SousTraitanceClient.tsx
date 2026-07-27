@@ -30,6 +30,12 @@ import {
   DonutChart,
   RefreshButton,
   PrimaryActionButton,
+  FadeSwap,
+  Skeleton,
+  KpiGridSkeleton,
+  ChartCardSkeleton,
+  PaymentProgressSkeleton,
+  TableSkeleton,
 } from "@/components/Functions";
 
 interface Props {
@@ -85,19 +91,11 @@ export default function SousTraitanceClient({ contrats, onRefresh, refreshing }:
     [enriched]
   );
 
-  if (loadingPaiements) {
-    return (
-      <div className="flex items-center justify-center min-h-[40vh]">
-        <p className="text-sm text-content-muted dark:text-content-muted-dark animate-pulse">
-          Chargement des paiements sous-traitance…
-        </p>
-      </div>
-    );
-  }
-
   return (
-    <ChartJsLoader>
-      <div className="bg-surface-page dark:bg-surface-page-dark min-h-full py-6 px-4 sm:px-6 lg:px-8">
+    <div className="bg-surface-page dark:bg-surface-page-dark min-h-full py-6 px-4 sm:px-6 lg:px-8">
+      <FadeSwap show={loadingPaiements} skeleton={<SousTraitanceSkeleton />}>
+      <ChartJsLoader>
+        <>
 
         {/* ── Header ──────────────────────────────────────────────────── */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
@@ -166,8 +164,57 @@ export default function SousTraitanceClient({ contrats, onRefresh, refreshing }:
           </Card>
         </Section>
 
+        </>
+      </ChartJsLoader>
+      </FadeSwap>
+    </div>
+  );
+}
+
+function SousTraitanceSkeleton() {
+  return (
+    <>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-content-primary dark:text-content-primary-dark">
+            Tableau de bord — Sous-traitance
+          </h1>
+          <Skeleton className="h-4 w-52 mt-2" />
+        </div>
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-9 w-28 rounded-lg" />
+          <Skeleton className="h-9 w-40 rounded-lg" />
+        </div>
       </div>
-    </ChartJsLoader>
+
+      <Section title="Vue d'ensemble">
+        <KpiGridSkeleton count={4} />
+      </Section>
+
+      <Section title="Avancement des paiements ST">
+        <PaymentProgressSkeleton />
+      </Section>
+
+      <Section title="Répartition des engagements">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <ChartCardSkeleton title="Montant TTC par sous-traitant" variant="hbar" rows={5} />
+          <ChartCardSkeleton title="Payé vs restant par contrat" variant="bar" />
+        </div>
+      </Section>
+
+      <Section title="Statuts & échéances">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <ChartCardSkeleton title="Statuts des contrats" variant="donut" />
+          <ChartCardSkeleton title="Statuts des paiements" variant="donut" />
+        </div>
+      </Section>
+
+      <Section title="Liste des contrats">
+        <Card>
+          <TableSkeleton columns={9} rows={5} />
+        </Card>
+      </Section>
+    </>
   );
 }
 
