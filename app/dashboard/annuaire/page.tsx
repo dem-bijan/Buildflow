@@ -111,10 +111,10 @@ export default function AnnuairePage() {
     <div className="space-y-6">
       <FadeSwap show={loading && employes.length === 0} skeleton={<AnnuaireSkeleton />}>
       <>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8 px-4 sm:px-6 lg:px-8">
         <div>
-          <h2 className="text-xl font-semibold text-content-primary dark:text-content-primary-dark">Annuaire RH</h2>
-          <p className="text-sm text-content-muted dark:text-content-muted-dark">Ajoutez et consultez les employés.</p>
+          <h2 className="text-xl sm:text-2xl font-bold text-content-primary dark:text-content-primary-dark">Annuaire RH</h2>
+          <p className="text-sm text-content-muted dark:text-content-muted-dark mt-1">Ajoutez et consultez les employés.</p>
         </div>
         <PrimaryActionButton onClick={() => setShowForm((value) => !value)}>
           {showForm ? "Fermer" : "+ Nouvel employé"}
@@ -122,13 +122,17 @@ export default function AnnuairePage() {
       </div>
 
       {showForm && (
-        <form onSubmit={handleSubmit} className="rounded-2xl border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark p-4 space-y-4">
+        <form onSubmit={handleSubmit} className="mb-6 mx-4 sm:mx-6 lg:mx-8 p-5 rounded-xl border border-edge-subtle dark:border-edge-subtle-dark bg-surface-card dark:bg-surface-card-dark space-y-5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-content-primary dark:text-content-primary-dark">Nouvel employé</h3>
+            <button type="button" onClick={() => setShowForm(false)} className="text-xs text-content-muted dark:text-content-muted-dark hover:text-content-primary dark:hover:text-content-primary-dark transition-colors">✕ Annuler</button>
+          </div>
           <div className="grid gap-4 md:grid-cols-2">
-            <label className="text-sm space-y-1"><span className="text-content-muted">Matricule</span><input required value={form.matricule} onChange={(event) => setForm((value) => ({ ...value, matricule: event.target.value }))} className="w-full rounded-lg border border-edge-subtle px-3 py-2" /></label>
-            <label className="text-sm space-y-1"><span className="text-content-muted">Nom</span><input required value={form.nom} onChange={(event) => setForm((value) => ({ ...value, nom: event.target.value }))} className="w-full rounded-lg border border-edge-subtle px-3 py-2" /></label>
-            <label className="text-sm space-y-1"><span className="text-content-muted">Prénom</span><input required value={form.prenom} onChange={(event) => setForm((value) => ({ ...value, prenom: event.target.value }))} className="w-full rounded-lg border border-edge-subtle px-3 py-2" /></label>
+            <label className="text-sm space-y-1"><span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Matricule</span><input required value={form.matricule} onChange={(event) => setForm((value) => ({ ...value, matricule: event.target.value }))} className="w-full rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow" /></label>
+            <label className="text-sm space-y-1"><span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Nom</span><input required value={form.nom} onChange={(event) => setForm((value) => ({ ...value, nom: event.target.value }))} className="w-full rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow" /></label>
+            <label className="text-sm space-y-1"><span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Prénom</span><input required value={form.prenom} onChange={(event) => setForm((value) => ({ ...value, prenom: event.target.value }))} className="w-full rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow" /></label>
             <label className="text-sm space-y-1">
-              <span className="text-content-muted">Rôle</span>
+              <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Rôle</span>
 
               <select
                 value={form.role}
@@ -138,7 +142,7 @@ export default function AnnuairePage() {
                     role: event.target.value as CreateEmployeDTO["role"],
                   }))
                 }
-                className="w-full rounded-lg border border-edge-subtle px-3 py-2"
+                className="w-full rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow"
               >
                 <option value="OUVRIER">Ouvrier</option>
                 <option value="CHEF_EQUIPE">Chef d&apos;équipe</option>
@@ -150,13 +154,13 @@ export default function AnnuairePage() {
                 <option value="ADMIN">Administrateur</option>
               </select>
             </label>
-            <label className="text-sm space-y-1"><span className="text-content-muted">Poste</span><input required value={form.poste} onChange={(event) => setForm((value) => ({ ...value, poste: event.target.value }))} className="w-full rounded-lg border border-edge-subtle px-3 py-2" /></label>
-            <label className="text-sm space-y-1"><span className="text-content-muted">Département</span><input required value={form.departement} onChange={(event) => setForm((value) => ({ ...value, departement: event.target.value }))} className="w-full rounded-lg border border-edge-subtle px-3 py-2" /></label>
-            <label className="text-sm space-y-1"><span className="text-content-muted">Téléphone</span><input required value={form.telephone} onChange={(event) => setForm((value) => ({ ...value, telephone: event.target.value }))} className="w-full rounded-lg border border-edge-subtle px-3 py-2" /></label>
-            <label className="text-sm space-y-1"><span className="text-content-muted">Email</span><input type="email" required value={form.email} onChange={(event) => setForm((value) => ({ ...value, email: event.target.value }))} className="w-full rounded-lg border border-edge-subtle px-3 py-2" /></label>
-            <label className="text-sm space-y-1"><span className="text-content-muted">Date d’embauche</span><input type="date" required value={form.dateEmbauche} onChange={(event) => setForm((value) => ({ ...value, dateEmbauche: event.target.value }))} className="w-full rounded-lg border border-edge-subtle px-3 py-2" /></label>
+            <label className="text-sm space-y-1"><span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Poste</span><input required value={form.poste} onChange={(event) => setForm((value) => ({ ...value, poste: event.target.value }))} className="w-full rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow" /></label>
+            <label className="text-sm space-y-1"><span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Département</span><input required value={form.departement} onChange={(event) => setForm((value) => ({ ...value, departement: event.target.value }))} className="w-full rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow" /></label>
+            <label className="text-sm space-y-1"><span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Téléphone</span><input required value={form.telephone} onChange={(event) => setForm((value) => ({ ...value, telephone: event.target.value }))} className="w-full rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow" /></label>
+            <label className="text-sm space-y-1"><span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Email</span><input type="email" required value={form.email} onChange={(event) => setForm((value) => ({ ...value, email: event.target.value }))} className="w-full rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow" /></label>
+            <label className="text-sm space-y-1"><span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Date d’embauche</span><input type="date" required value={form.dateEmbauche} onChange={(event) => setForm((value) => ({ ...value, dateEmbauche: event.target.value }))} className="w-full rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow" /></label>
             <label className="text-sm space-y-1">
-              <span className="text-content-muted">Chantier actuel</span>
+              <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Chantier actuel</span>
 
               <select
                 value={form.chantierActuelId ?? ""}
@@ -166,7 +170,7 @@ export default function AnnuairePage() {
                     chantierActuelId: event.target.value || undefined,
                   }))
                 }
-                className="w-full rounded-lg border border-edge-subtle px-3 py-2"
+                className="w-full rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow"
               >
                 <option value="">Aucun</option>
 
@@ -177,12 +181,12 @@ export default function AnnuairePage() {
                 ))}
               </select>
             </label>
-            <label className="text-sm space-y-1"><span className="text-content-muted">Statut</span><select value={form.statut} onChange={(event) => setForm((value) => ({ ...value, statut: event.target.value as CreateEmployeDTO["statut"] }))} className="w-full rounded-lg border border-edge-subtle px-3 py-2"><option value="ACTIF">ACTIF</option><option value="INACTIF">INACTIF</option></select></label>
-            <label className="text-sm space-y-1"><span className="text-content-muted">Salaire brut</span><input type="number" min="0" step="0.01" required value={form.salaireBrut} onChange={(event) => setForm((value) => ({ ...value, salaireBrut: Number(event.target.value) }))} className="w-full rounded-lg border border-edge-subtle px-3 py-2" /></label>
-            <label className="text-sm space-y-1"><span className="text-content-muted">Type de contrat</span><select value={form.typeContrat} onChange={(event) => setForm((value) => ({ ...value, typeContrat: event.target.value as CreateEmployeDTO["typeContrat"] }))} className="w-full rounded-lg border border-edge-subtle px-3 py-2"><option value="CDI">CDI</option><option value="CDD">CDD</option><option value="ANAPEC">ANAPEC</option><option value="JOURNALIER">JOURNALIER</option></select></label>
+            <label className="text-sm space-y-1"><span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Statut</span><select value={form.statut} onChange={(event) => setForm((value) => ({ ...value, statut: event.target.value as CreateEmployeDTO["statut"] }))} className="w-full rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow"><option value="ACTIF">ACTIF</option><option value="INACTIF">INACTIF</option></select></label>
+            <label className="text-sm space-y-1"><span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Salaire brut</span><input type="number" min="0" step="0.01" required value={form.salaireBrut} onChange={(event) => setForm((value) => ({ ...value, salaireBrut: Number(event.target.value) }))} className="w-full rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow" /></label>
+            <label className="text-sm space-y-1"><span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Type de contrat</span><select value={form.typeContrat} onChange={(event) => setForm((value) => ({ ...value, typeContrat: event.target.value as CreateEmployeDTO["typeContrat"] }))} className="w-full rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow"><option value="CDI">CDI</option><option value="CDD">CDD</option><option value="ANAPEC">ANAPEC</option><option value="JOURNALIER">JOURNALIER</option></select></label>
           </div>
           {formError && <p className="text-sm text-red-500">{formError}</p>}
-          <div className="flex items-center gap-3"><button type="submit" disabled={submitting} className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{submitting ? "Enregistrement…" : "Enregistrer"}</button><button type="button" onClick={() => setShowForm(false)} className="text-sm text-content-muted">Annuler</button></div>
+          <div className="flex justify-end"><button type="submit" disabled={submitting} className="px-6 py-2.5 text-sm font-semibold text-white bg-accent hover:bg-accent/90 rounded-lg disabled:opacity-50 transition-colors">{submitting ? "Enregistrement…" : "Enregistrer"}</button></div>
         </form>
       )}
 

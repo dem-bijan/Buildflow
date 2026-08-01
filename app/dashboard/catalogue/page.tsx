@@ -167,10 +167,10 @@ export default function CataloguePage() {
     <div className="space-y-6">
       <FadeSwap show={loading && articles.length === 0} skeleton={<CatalogueSkeleton />}>
       <>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8 px-4 sm:px-6 lg:px-8">
         <div>
-          <h2 className="text-xl font-semibold text-content-primary dark:text-content-primary-dark">Catalogue</h2>
-          <p className="text-sm text-content-muted dark:text-content-muted-dark">Ajoutez et consultez vos articles .</p>
+          <h2 className="text-xl sm:text-2xl font-bold text-content-primary dark:text-content-primary-dark">Catalogue</h2>
+          <p className="text-sm text-content-muted dark:text-content-muted-dark mt-1">Ajoutez et consultez vos articles .</p>
         </div>
         <PrimaryActionButton onClick={() => setShowForm((value) => !value)}>
           {showForm ? "Fermer" : "+ Nouvel article"}
@@ -178,22 +178,26 @@ export default function CataloguePage() {
       </div>
 
       {showForm && (
-        <form onSubmit={handleSubmit} className="rounded-2xl border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark p-4 space-y-4">
+        <form onSubmit={handleSubmit} className="mb-6 mx-4 sm:mx-6 lg:mx-8 p-5 rounded-xl border border-edge-subtle dark:border-edge-subtle-dark bg-surface-card dark:bg-surface-card-dark space-y-5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-content-primary dark:text-content-primary-dark">Nouvel article</h3>
+            <button type="button" onClick={() => setShowForm(false)} className="text-xs text-content-muted dark:text-content-muted-dark hover:text-content-primary dark:hover:text-content-primary-dark transition-colors">✕ Annuler</button>
+          </div>
           <div className="grid gap-4 md:grid-cols-2">
             <label className="text-sm space-y-1">
-              <span className="text-content-muted">Code</span>
-              <input required value={form.code ?? ""} onChange={(event) => setForm((value) => ({ ...value, code: event.target.value }))} className="w-full rounded-lg border border-edge-subtle px-3 py-2" />
+              <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Code</span>
+              <input required value={form.code ?? ""} onChange={(event) => setForm((value) => ({ ...value, code: event.target.value }))} className="w-full rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow" />
             </label>
             <label className="text-sm space-y-1">
-              <span className="text-content-muted">Désignation</span>
-              <input required value={form.designation ?? ""} onChange={(event) => setForm((value) => ({ ...value, designation: event.target.value }))} className="w-full rounded-lg border border-edge-subtle px-3 py-2" />
+              <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Désignation</span>
+              <input required value={form.designation ?? ""} onChange={(event) => setForm((value) => ({ ...value, designation: event.target.value }))} className="w-full rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow" />
             </label>
             <label className="text-sm space-y-1 md:col-span-2">
-              <span className="text-content-muted">Description</span>
-              <textarea value={form.description ?? ""} onChange={(event) => setForm((value) => ({ ...value, description: event.target.value }))} className="w-full rounded-lg border border-edge-subtle px-3 py-2" rows={3} />
+              <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Description</span>
+              <textarea value={form.description ?? ""} onChange={(event) => setForm((value) => ({ ...value, description: event.target.value }))} className="w-full rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow" rows={3} />
             </label>
             <label className="text-sm space-y-1">
-              <span className="text-content-muted">Catégorie</span>
+              <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Catégorie</span>
 
               <input
                 list="categories"
@@ -204,7 +208,7 @@ export default function CataloguePage() {
                     categorie: e.target.value,
                   }))
                 }
-                className="w-full rounded-lg border border-edge-subtle px-3 py-2"
+                className="w-full rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow"
                 placeholder="Choisir ou créer..."
               />
 
@@ -215,19 +219,19 @@ export default function CataloguePage() {
               </datalist>
             </label>
             <label className="text-sm space-y-1">
-              <span className="text-content-muted">Unité</span>
-              <input required value={form.unite ?? ""} onChange={(event) => setForm((value) => ({ ...value, unite: event.target.value }))} className="w-full rounded-lg border border-edge-subtle px-3 py-2" />
+              <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Unité</span>
+              <input required value={form.unite ?? ""} onChange={(event) => setForm((value) => ({ ...value, unite: event.target.value }))} className="w-full rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow" />
             </label>
             <label className="text-sm space-y-1">
-              <span className="text-content-muted">Prix d’achat de référence</span>
-              <input type="number" min="0" step="0.01" required value={form.prixAchatRef ?? 0} onChange={(event) => setForm((value) => ({ ...value, prixAchatRef: Number(event.target.value) }))} className="w-full rounded-lg border border-edge-subtle px-3 py-2" />
+              <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Prix d’achat de référence</span>
+              <input type="number" min="0" step="0.01" required value={form.prixAchatRef ?? 0} onChange={(event) => setForm((value) => ({ ...value, prixAchatRef: Number(event.target.value) }))} className="w-full rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow" />
             </label>
             <label className="text-sm space-y-1">
-              <span className="text-content-muted">TVA (%)</span>
-              <input type="number" min="0" step="0.01" required value={form.tvaRate ?? 0} onChange={(event) => setForm((value) => ({ ...value, tvaRate: Number(event.target.value) }))} className="w-full rounded-lg border border-edge-subtle px-3 py-2" />
+              <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">TVA (%)</span>
+              <input type="number" min="0" step="0.01" required value={form.tvaRate ?? 0} onChange={(event) => setForm((value) => ({ ...value, tvaRate: Number(event.target.value) }))} className="w-full rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow" />
             </label>
             <div className="text-sm space-y-1 md:col-span-2">
-              <span className="text-content-muted">Fournisseurs préférentiels</span>
+              <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Fournisseurs préférentiels</span>
               {fournisseurs.length === 0 ? (
                 <p className="text-xs text-content-muted">Aucun fournisseur enregistré.</p>
               ) : (
@@ -261,11 +265,10 @@ export default function CataloguePage() {
             </div>
           </div>
           {formError && <p className="text-sm text-red-500">{formError}</p>}
-          <div className="flex items-center gap-3">
-            <button type="submit" disabled={submitting} className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">
+          <div className="flex justify-end">
+            <button type="submit" disabled={submitting} className="px-6 py-2.5 text-sm font-semibold text-white bg-accent hover:bg-accent/90 rounded-lg disabled:opacity-50 transition-colors">
               {submitting ? "Enregistrement…" : "Enregistrer"}
             </button>
-            <button type="button" onClick={() => setShowForm(false)} className="text-sm text-content-muted">Annuler</button>
           </div>
         </form>
       )}
