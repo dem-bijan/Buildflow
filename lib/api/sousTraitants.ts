@@ -50,3 +50,20 @@ export async function createSousTraitant(payload: CreateSousTraitantDTO): Promis
     const { data } = await apiClient.post<SousTraitantDTO>("/sous-traitants", payload);
     return data;
 }
+
+/**
+ * Update an existing sous-traitant (master data).
+ * PUT /api/v1/sous-traitants/{id}
+ */
+export async function updateSousTraitant(id: string, payload: CreateSousTraitantDTO): Promise<SousTraitantDTO> {
+    const { data } = await apiClient.put<SousTraitantDTO>(`/sous-traitants/${id}`, payload);
+    return data;
+}
+
+/**
+ * Delete a sous-traitant (master data).
+ * DELETE /api/v1/sous-traitants/{id}
+ */
+export async function deleteSousTraitant(id: string): Promise<void> {
+    await apiClient.delete(`/sous-traitants/${id}`);
+}

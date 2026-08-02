@@ -10,6 +10,8 @@ import { hydrate } from "@/components/functions2";
 import type { Achat, AchatsHydrated } from "@/components/functions2";
 import { achatsHydrationConfig } from "@/components/functions2";
 import { fetchArticles } from "@/lib/api/articles";
+import { fetchBpuLignes } from "@/lib/api/bpu";
+import type { BpuLigneDTO } from "@/lib/api/bpu";
 import { fmt } from "@/components/functions2";
 import {
   ChartJsLoader,
@@ -50,6 +52,8 @@ export default function AchatsClient() {
     { id: string; nom: string }[]
   >([]);
 
+  const [bpuLignes, setBpuLignes] = useState<BpuLigneDTO[]>([]);
+
   const [submitting, setSubmitting] = useState(false);
 
   const [formError, setFormError] = useState<string | null>(null);
@@ -65,10 +69,19 @@ export default function AchatsClient() {
         articleId: "",
         designation: "",
         quantite: 1,
-        prixUnitaire: 0
+        prixUnitaire: 0,
+        bpuLigneId: ""
       }
     ]
   });
+
+  useEffect(() => {
+    if (!form.chantierId) {
+      setBpuLignes([]);
+      return;
+    }
+    fetchBpuLignes(form.chantierId).then(setBpuLignes).catch(() => setBpuLignes([]));
+  }, [form.chantierId]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -134,7 +147,8 @@ export default function AchatsClient() {
           articleId: l.articleId,
           designation: l.designation,
           quantite: Number(l.quantite),
-          prixUnitaire: Number(l.prixUnitaire)
+          prixUnitaire: Number(l.prixUnitaire),
+          bpuLigneId: l.bpuLigneId || undefined
         }))
       });
 
@@ -151,7 +165,8 @@ export default function AchatsClient() {
             articleId: "",
             designation: "",
             quantite: 1,
-            prixUnitaire: 0
+            prixUnitaire: 0,
+            bpuLigneId: ""
           }
         ]
       });
@@ -349,7 +364,8 @@ export default function AchatsClient() {
                           articleId: "",
                           designation: "",
                           quantite: 1,
-                          prixUnitaire: 0
+                          prixUnitaire: 0,
+                          bpuLigneId: ""
                         }
                       ]
                     }))
@@ -365,7 +381,7 @@ export default function AchatsClient() {
 
                 <div
                   key={index}
-                  className="grid gap-3 md:grid-cols-4 items-end"
+                  className="grid gap-3 md:grid-cols-5 items-end"
                 >
                   <label className="text-sm space-y-1 md:col-span-2">
                     <span className="text-content-muted">
@@ -442,6 +458,37 @@ export default function AchatsClient() {
                     <div className="w-full rounded-lg border border-edge-subtle px-3 py-2 bg-gray-100">
                       {ligne.prixUnitaire} DH
                     </div>
+                  </label>
+
+
+                  <label className="text-sm space-y-1">
+                    <span className="text-content-muted">
+                      Ligne BPU
+                    </span>
+
+                    <select
+                      value={ligne.bpuLigneId}
+                      disabled={!form.chantierId}
+                      onChange={(e) =>
+                        setForm(v => ({
+                          ...v,
+                          lignes: v.lignes.map((l, i) =>
+                            i === index
+                              ? { ...l, bpuLigneId: e.target.value }
+                              : l
+                          )
+                        }))
+                      }
+                      className="w-full rounded-lg border border-edge-subtle px-3 py-2 disabled:opacity-50"
+                    >
+                      <option value="">Aucune imputation</option>
+
+                      {bpuLignes.map(bl => (
+                        <option key={bl.id} value={bl.id}>
+                          {bl.ref} — {bl.designation}
+                        </option>
+                      ))}
+                    </select>
                   </label>
 
 

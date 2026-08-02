@@ -6,6 +6,7 @@ export interface CreateLigneAchatDTO {
   designation: string;
   quantite: number;
   prixUnitaire: number;
+  bpuLigneId?: string;
 }
 
 export interface CreateAchatDTO {

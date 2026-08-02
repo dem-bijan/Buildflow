@@ -17,10 +17,16 @@ export default function CatalogueClient({
   articles,
   onRefresh,
   refreshing,
+  canManage,
+  onEdit,
+  onDelete,
 }: {
   articles: Article[];
   onRefresh?: () => void;
   refreshing?: boolean;
+  canManage?: boolean;
+  onEdit?: (a: Article) => void;
+  onDelete?: (a: Article) => void;
 }) {
   const h = useMemo(() => hydrate<Article, CatalogueHydrated>(articles, catalogueHydrationConfig), [articles]);
   const [search, setSearch] = useState("");
@@ -92,7 +98,12 @@ export default function CatalogueClient({
                 className="w-full sm:w-80 px-4 py-2 text-sm rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark placeholder:text-content-muted/50 focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow"
               />
             </div>
-            <ArticlesTable articles={filtered} />
+            <ArticlesTable
+              articles={filtered}
+              canManage={!!canManage}
+              onEdit={onEdit}
+              onDelete={onDelete}
+            />
           </Card>
         </Section>
 
@@ -101,7 +112,17 @@ export default function CatalogueClient({
   );
 }
 
-function ArticlesTable({ articles }: { articles: Article[] }) {
+function ArticlesTable({
+  articles,
+  canManage,
+  onEdit,
+  onDelete,
+}: {
+  articles: Article[];
+  canManage: boolean;
+  onEdit?: (a: Article) => void;
+  onDelete?: (a: Article) => void;
+}) {
   if (articles.length === 0) {
     return (
       <div className="px-4 py-12 text-center">
@@ -115,7 +136,7 @@ function ArticlesTable({ articles }: { articles: Article[] }) {
       <table className="w-full text-sm border-collapse min-w-[800px]">
         <thead>
           <tr className="border-b-2 border-edge-default dark:border-edge-default-dark">
-            {["Code", "Désignation", "Catégorie", "Unité", "Prix réf. HT", "TVA", "Statut"].map(h => (
+            {["Code", "Désignation", "Catégorie", "Unité", "Prix réf. HT", "TVA", "Statut", ...(canManage ? ["Actions"] : [])].map(h => (
               <th key={h} className="text-left px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-content-muted dark:text-content-muted-dark whitespace-nowrap">
                 {h}
               </th>
@@ -144,6 +165,16 @@ function ArticlesTable({ articles }: { articles: Article[] }) {
                   </span>
                 )}
               </td>
+              {canManage && (
+                <td className="px-3 py-3 whitespace-nowrap">
+                  <button onClick={() => onEdit?.(a)} className="text-xs text-accent font-semibold mr-3">
+                    Modifier
+                  </button>
+                  <button onClick={() => onDelete?.(a)} className="text-xs text-red-500 font-semibold">
+                    Supprimer
+                  </button>
+                </td>
+              )}
             </tr>
           ))}
         </tbody>

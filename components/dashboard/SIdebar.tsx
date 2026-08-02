@@ -104,8 +104,8 @@ export default function Sidebar() {
                         text="Buildflow"
                         speed={2}
                         delay={0}
-                        color={isDark ? "#fff8f0" : "#1a1410"}
-                        shineColor={isDark ? "#1a1410" : "#fff8f0"}
+                        color={isDark ? "#fafbfd" : "#111318"}
+                        shineColor={isDark ? "#111318" : "#fafbfd"}
                         spread={45}
                         yoyo={true}
                         disabled={!mounted}

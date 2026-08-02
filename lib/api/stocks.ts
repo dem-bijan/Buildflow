@@ -1,4 +1,14 @@
-import apiClient, { toArrayPayload } from "./client";
+import apiClient, { toArrayPayload, unwrapApiPayload } from "./client";
+
+export type TypeMouvement = "ENTREE" | "SORTIE" | "AJUSTEMENT";
+
+export interface CreateMouvementStockDTO {
+  articleId: string;
+  chantierId: string;
+  typeMouvement: TypeMouvement;
+  quantite: number;
+  documentRef?: string;
+}
 
 export interface StockArticleDTO {
   id: string;
@@ -26,4 +36,13 @@ export async function fetchStocksByChantier(
     params: { page, size, sort },
   });
   return toArrayPayload<StockArticleDTO>(data);
+}
+
+/**
+ * Create a manual stock movement (entrée/sortie/ajustement).
+ * POST /api/v1/stocks/mouvements
+ */
+export async function createMouvementStock(payload: CreateMouvementStockDTO): Promise<StockArticleDTO> {
+  const { data } = await apiClient.post<unknown>("/stocks/mouvements", payload);
+  return unwrapApiPayload<StockArticleDTO>(data);
 }

@@ -42,6 +42,8 @@ import { fetchArticles } from "@/lib/api/articles";
 import { fetchEmployes } from "@/lib/api/employes";
 import { fetchEcritures } from "@/lib/api/comptabilite";
 import { fetchStocksByChantier, type StockArticleDTO } from "@/lib/api/stocks";
+import { fetchDashboardKpis, type DashboardKpisDTO } from "@/lib/api/dashboard";
+import { fmt } from "@/components/functions2";
 
 import { useAuth } from "@/lib/authContext";
 import { isAllowed, type Role } from "@/lib/auth/permissions";
@@ -65,6 +67,11 @@ export default function DashboardClient() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const canFinanceKpis = role === "ADMIN" || role === "FINANCE" || role === "DIRECTEUR";
+  const [kpisMonth, setKpisMonth] = useState("");
+  const [kpis, setKpis] = useState<DashboardKpisDTO | null>(null);
+  const [kpisLoading, setKpisLoading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -231,6 +238,15 @@ export default function DashboardClient() {
   useEffect(() => {
     if (!authLoading) load();
   }, [authLoading, load]);
+
+  useEffect(() => {
+    if (authLoading || !canFinanceKpis) return;
+    setKpisLoading(true);
+    fetchDashboardKpis(kpisMonth || undefined)
+      .then(setKpis)
+      .catch(() => setKpis(null))
+      .finally(() => setKpisLoading(false));
+  }, [authLoading, canFinanceKpis, kpisMonth]);
 
   const hAchats = useMemo(() => hydrate<Achat, AchatsHydrated>(achats, achatsHydrationConfig), [achats]);
   const hFournisseurs = useMemo(() => hydrate<Fournisseur, FournisseursHydrated>(fournisseurs, fournisseursHydrationConfig), [fournisseurs]);
@@ -410,6 +426,15 @@ export default function DashboardClient() {
           </p>
         </div>
 
+        {canFinanceKpis && (
+          <FinanceKpisSection
+            kpis={kpis}
+            loading={kpisLoading}
+            month={kpisMonth}
+            onMonthChange={setKpisMonth}
+          />
+        )}
+
         {topCards.length === 0 && domainCards.length === 0 ? (
           <div className="flex flex-col items-center justify-center min-h-[40vh] gap-2 text-center">
             <p className="text-sm font-medium text-content-primary dark:text-content-primary-dark">
@@ -513,6 +538,111 @@ function TopKpiCard({
         </div>
       </div>
     </Link>
+  );
+}
+
+function FinanceKpisSection({
+  kpis,
+  loading,
+  month,
+  onMonthChange,
+}: {
+  kpis: DashboardKpisDTO | null;
+  loading: boolean;
+  month: string;
+  onMonthChange: (month: string) => void;
+}) {
+  const balanceKpis = [
+    { label: "Dettes Fournisseurs (TTC)", value: kpis?.dettesFournisseursTtc },
+    { label: "Dettes Sous-traitants (TTC)", value: kpis?.dettesSousTraitantsTtc },
+    { label: "Paie à Payer (NET)", value: kpis?.paieAPayerNet },
+    { label: "Attachements en Cours (TTC)", value: kpis?.attachementsEnCoursTtc },
+    { label: "Valeur Stocks Globale (HT)", value: kpis?.valeurStocksGlobaleHt },
+  ];
+
+  const flowKpis = [
+    { label: "Décaissements Caisse (TTC)", value: kpis?.decaissementsCaisseTtc },
+    { label: "Encaissements Globaux (TTC)", value: kpis?.encaissementsGlobauxTtc },
+    { label: "Décaissements Globaux (TTC)", value: kpis?.decaissementsGlobauxTtc },
+  ];
+
+  return (
+    <section className="mb-8">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-bold uppercase tracking-wide text-content-secondary dark:text-content-secondary-dark">
+          Finance &amp; Marges
+        </h2>
+        <label className="flex items-center gap-2 text-xs text-content-muted dark:text-content-muted-dark">
+          Période (flux)
+          <input
+            type="month"
+            value={month}
+            onChange={(e) => onMonthChange(e.target.value)}
+            className="rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark px-2 py-1"
+          />
+          {month && (
+            <button type="button" onClick={() => onMonthChange("")} className="text-accent font-semibold">
+              Tout
+            </button>
+          )}
+        </label>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 xl:grid-cols-5 mb-3">
+        {balanceKpis.map((k) => (
+          <FinanceKpiCard key={k.label} label={k.label} value={k.value} loading={loading} />
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 mb-3">
+        {flowKpis.map((k) => (
+          <FinanceKpiCard key={k.label} label={k.label} value={k.value} loading={loading} />
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <FinanceKpiCard
+          label="Marge Nette Comptable (HT)"
+          value={kpis?.margeNetteComptableHt}
+          loading={loading}
+          highlight
+        />
+        <FinanceKpiCard
+          label="Marge en Cours Prévisionnelle (HT)"
+          value={kpis?.margeEnCoursPrevisionnelleHt}
+          loading={loading}
+          highlight
+        />
+      </div>
+    </section>
+  );
+}
+
+function FinanceKpiCard({
+  label,
+  value,
+  loading,
+  highlight,
+}: {
+  label: string;
+  value: number | undefined;
+  loading: boolean;
+  highlight?: boolean;
+}) {
+  const negative = typeof value === "number" && value < 0;
+  return (
+    <Card className={`p-4 ${highlight ? "border-accent/40" : ""}`}>
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-content-muted dark:text-content-muted-dark mb-1">
+        {label}
+      </p>
+      {loading ? (
+        <Skeleton className="h-6 w-24" />
+      ) : (
+        <p className={`text-lg font-bold font-mono ${negative ? "text-red-600 dark:text-red-400" : "text-content-primary dark:text-content-primary-dark"}`}>
+          {typeof value === "number" ? `${fmt(value)} MAD` : "—"}
+        </p>
+      )}
+    </Card>
   );
 }
 

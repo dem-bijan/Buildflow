@@ -1,8 +1,16 @@
 "use client";
 
 import { useState, useEffect, useCallback, type FormEvent } from "react";
-import { ArticleForm, createArticle, fetchArticles, type CreateArticleDTO } from "@/lib/api/articles";
+import {
+  ArticleForm,
+  createArticle,
+  updateArticle,
+  deleteArticle,
+  fetchArticles,
+  type CreateArticleDTO,
+} from "@/lib/api/articles";
 import CatalogueClient from "./CatalogueClient";
+import { useAuth } from "@/lib/authContext";
 import {
   PrimaryActionButton,
   FadeSwap,
@@ -47,11 +55,15 @@ function generateCategoryCode(libelle: string) {
 }
 
 export default function CataloguePage() {
+  const { user } = useAuth();
+  const canManage = user?.role === "ADMIN" || user?.role === "ACHAT";
+
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<ArticleForm>(emptyArticleForm);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [categories, setCategories] = useState<CategorieArticleDTO[]>([]);
   const [fournisseurs, setFournisseurs] = useState<FournisseurDTO[]>([]);
@@ -118,7 +130,7 @@ export default function CataloguePage() {
         setCategories((prev) => [...prev, created]);
       }
 
-      await createArticle({
+      const payload: CreateArticleDTO = {
         code: form.code,
         designation: form.designation,
         description: form.description,
@@ -130,18 +142,50 @@ export default function CataloguePage() {
         tvaRate: Number(form.tvaRate),
 
         fournisseursPreferentiels: form.fournisseursPreferentiels,
-      });
+      };
+
+      if (editingId) {
+        await updateArticle(editingId, payload);
+      } else {
+        await createArticle(payload);
+      }
 
       setShowForm(false);
+      setEditingId(null);
       setForm(emptyArticleForm);
       await load();
     } catch {
-      const msg =
-        "Impossible d’enregistrer l’article";
+      const msg = editingId ? "Impossible de modifier l’article" : "Impossible d’enregistrer l’article";
 
       setFormError(msg);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleEdit = (a: Article) => {
+    setEditingId(a.id);
+    setForm({
+      code: a.code,
+      designation: a.designation,
+      description: a.description ?? "",
+      categorie: a.categorieLibelle,
+      unite: a.unite,
+      prixAchatRef: a.prixAchatRef,
+      tvaRate: a.tvaRate,
+      fournisseursPreferentiels: a.fournisseursPreferentiels ?? [],
+    });
+    setFormError(null);
+    setShowForm(true);
+  };
+
+  const handleDelete = async (a: Article) => {
+    if (!confirm(`Supprimer l'article "${a.designation}" ?`)) return;
+    try {
+      await deleteArticle(a.id);
+      await load();
+    } catch {
+      setError("Impossible de supprimer cet article (peut-être référencé par des achats/stocks).");
     }
   };
 
@@ -172,16 +216,20 @@ export default function CataloguePage() {
           <h2 className="text-xl sm:text-2xl font-bold text-content-primary dark:text-content-primary-dark">Catalogue</h2>
           <p className="text-sm text-content-muted dark:text-content-muted-dark mt-1">Ajoutez et consultez vos articles .</p>
         </div>
-        <PrimaryActionButton onClick={() => setShowForm((value) => !value)}>
-          {showForm ? "Fermer" : "+ Nouvel article"}
-        </PrimaryActionButton>
+        {canManage && (
+          <PrimaryActionButton onClick={() => { setEditingId(null); setForm(emptyArticleForm); setShowForm((value) => !value); }}>
+            {showForm ? "Fermer" : "+ Nouvel article"}
+          </PrimaryActionButton>
+        )}
       </div>
 
-      {showForm && (
+      {showForm && canManage && (
         <form onSubmit={handleSubmit} className="mb-6 mx-4 sm:mx-6 lg:mx-8 p-5 rounded-xl border border-edge-subtle dark:border-edge-subtle-dark bg-surface-card dark:bg-surface-card-dark space-y-5">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-content-primary dark:text-content-primary-dark">Nouvel article</h3>
-            <button type="button" onClick={() => setShowForm(false)} className="text-xs text-content-muted dark:text-content-muted-dark hover:text-content-primary dark:hover:text-content-primary-dark transition-colors">✕ Annuler</button>
+            <h3 className="text-sm font-bold text-content-primary dark:text-content-primary-dark">
+              {editingId ? "Modifier l'article" : "Nouvel article"}
+            </h3>
+            <button type="button" onClick={() => { setShowForm(false); setEditingId(null); }} className="text-xs text-content-muted dark:text-content-muted-dark hover:text-content-primary dark:hover:text-content-primary-dark transition-colors">✕ Annuler</button>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             <label className="text-sm space-y-1">
@@ -267,13 +315,20 @@ export default function CataloguePage() {
           {formError && <p className="text-sm text-red-500">{formError}</p>}
           <div className="flex justify-end">
             <button type="submit" disabled={submitting} className="px-6 py-2.5 text-sm font-semibold text-white bg-accent hover:bg-accent/90 rounded-lg disabled:opacity-50 transition-colors">
-              {submitting ? "Enregistrement…" : "Enregistrer"}
+              {submitting ? "Enregistrement…" : editingId ? "Enregistrer les modifications" : "Enregistrer"}
             </button>
           </div>
         </form>
       )}
 
-      <CatalogueClient articles={articles} onRefresh={load} refreshing={loading} />
+      <CatalogueClient
+        articles={articles}
+        onRefresh={load}
+        refreshing={loading}
+        canManage={canManage}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+      />
       </>
       </FadeSwap>
     </div>

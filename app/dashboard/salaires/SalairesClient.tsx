@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { hydrate } from "@/components/functions2";
 import type { FichePaie, SalairesHydrated } from "@/components/functions2";
 import { salairesHydrationConfig } from "@/components/functions2";
-import { validerSalarie, payerSalarie, type SalarieDTO } from "@/lib/api/salaires";
+import { validerSalarie, payerSalarie, type SalarieDTO, type ModePaiement } from "@/lib/api/salaires";
 import {
   ChartJsLoader, Section, ChartCard, Card,
   KpiGrid,
@@ -33,6 +33,7 @@ export default function SalairesClient({
   const [search, setSearch] = useState("");
   const [actioningId, setActioningId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [choosingModeId, setChoosingModeId] = useState<string | null>(null);
 
   const filtered = search
     ? fiches.filter(f =>
@@ -41,17 +42,30 @@ export default function SalairesClient({
     )
     : fiches;
 
-  const runAction = async (id: string, action: "valider" | "payer") => {
+  const runAction = async (id: string, action: "valider") => {
     setActioningId(id);
     setActionError(null);
     try {
-      if (action === "valider") await validerSalarie(id);
-      else await payerSalarie(id);
+      await validerSalarie(id);
       onRefresh?.();
     } catch {
       setActionError("Action impossible");
     } finally {
       setActioningId(null);
+    }
+  };
+
+  const runPayer = async (id: string, modePaiement: ModePaiement) => {
+    setActioningId(id);
+    setActionError(null);
+    try {
+      await payerSalarie(id, modePaiement);
+      onRefresh?.();
+    } catch {
+      setActionError("Action impossible");
+    } finally {
+      setActioningId(null);
+      setChoosingModeId(null);
     }
   };
 
@@ -113,7 +127,14 @@ export default function SalairesClient({
               />
               {actionError && <p className="text-xs text-red-500">{actionError}</p>}
             </div>
-            <FichesTable fiches={filtered} actioningId={actioningId} onAction={runAction} />
+            <FichesTable
+              fiches={filtered}
+              actioningId={actioningId}
+              onAction={runAction}
+              choosingModeId={choosingModeId}
+              onChooseMode={setChoosingModeId}
+              onPayer={runPayer}
+            />
           </Card>
         </Section>
 
@@ -126,10 +147,16 @@ function FichesTable({
   fiches,
   actioningId,
   onAction,
+  choosingModeId,
+  onChooseMode,
+  onPayer,
 }: {
   fiches: SalarieDTO[];
   actioningId: string | null;
-  onAction: (id: string, action: "valider" | "payer") => void;
+  onAction: (id: string, action: "valider") => void;
+  choosingModeId: string | null;
+  onChooseMode: (id: string | null) => void;
+  onPayer: (id: string, modePaiement: ModePaiement) => void;
 }) {
   if (fiches.length === 0) {
     return (
@@ -186,17 +213,45 @@ function FichesTable({
                       {isBusy ? "…" : "Valider"}
                     </button>
                   )}
-                  {f.statut === "VALIDE" && (
+                  {f.statut === "VALIDE" && choosingModeId !== f.id && (
                     <button
-                      onClick={() => onAction(f.id, "payer")}
+                      onClick={() => onChooseMode(f.id)}
                       disabled={isBusy}
                       className="px-3 py-1.5 text-xs font-semibold text-white bg-accent hover:bg-accent/90 rounded-lg disabled:opacity-50 transition-colors"
                     >
                       {isBusy ? "…" : "Payer"}
                     </button>
                   )}
+                  {f.statut === "VALIDE" && choosingModeId === f.id && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-content-muted dark:text-content-muted-dark">Via :</span>
+                      <button
+                        onClick={() => onPayer(f.id, "VIREMENT")}
+                        disabled={isBusy}
+                        className="px-2.5 py-1 text-xs font-semibold text-accent border border-accent/30 rounded-lg hover:bg-accent/5 disabled:opacity-50 transition-colors"
+                      >
+                        {isBusy ? "…" : "Virement"}
+                      </button>
+                      <button
+                        onClick={() => onPayer(f.id, "CAISSE")}
+                        disabled={isBusy}
+                        className="px-2.5 py-1 text-xs font-semibold text-white bg-accent hover:bg-accent/90 rounded-lg disabled:opacity-50 transition-colors"
+                      >
+                        {isBusy ? "…" : "Caisse"}
+                      </button>
+                      <button
+                        onClick={() => onChooseMode(null)}
+                        disabled={isBusy}
+                        className="text-xs text-content-muted hover:text-content-primary transition-colors"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
                   {f.statut === "PAYEE" && (
-                    <span className="text-xs text-content-muted dark:text-content-muted-dark">—</span>
+                    <span className="text-xs text-content-muted dark:text-content-muted-dark">
+                      {f.modePaiement === "VIREMENT" ? "Virement" : "Caisse"}
+                    </span>
                   )}
                 </td>
               </tr>

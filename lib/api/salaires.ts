@@ -4,6 +4,8 @@ import apiClient, { toArrayPayload, unwrapApiPayload } from "./client";
 // Backend DTO shape returned by GET /api/v1/salaires and GET /api/v1/salaires/{id}
 // ─────────────────────────────────────────────────────────────────────────────
 
+export type ModePaiement = "VIREMENT" | "CAISSE";
+
 export interface SalarieDTO {
   id: string;
   reference: string;
@@ -21,6 +23,7 @@ export interface SalarieDTO {
   deductionsCnss?: number;
   deductionsIr?: number;
   netAPayer: number; // computed server-side
+  bpuLigneRef?: string;
   // Additional fields that might be present in the response
   employe?: {
     id: string;
@@ -46,6 +49,7 @@ export interface SalarieDTO {
   totalRetenues?: number;
   salaireNet?: number;
   statut: "BROUILLON" | "VALIDE" | "PAYEE"; // from API: BROUILLON → VALIDEE → PAYEE
+  modePaiement?: ModePaiement;
   datePaiement?: string;
   referenceVirement?: string;
   createdAt?: string;
@@ -68,6 +72,7 @@ export interface CreateSalarieDTO {
   avance?: number;
   deductionsCnss?: number;
   deductionsIr?: number;
+  bpuLigneId?: string;
 }
 
 /** Paginated wrapper returned by GET /api/v1/salaires (Spring Boot Page<T>). */
@@ -126,10 +131,12 @@ export async function validerSalarie(id: string): Promise<SalarieDTO> {
 }
 
 /**
- * Pay a salaire (Finance step).
+ * Pay a salaire (Finance step). modePaiement determines whether this debits
+ * the chantier's caisse (CAISSE) or is treated as an external bank transfer
+ * that doesn't touch the caisse balance (VIREMENT).
  * PATCH /api/v1/salaires/{id}/payer
  */
-export async function payerSalarie(id: string): Promise<SalarieDTO> {
-  const { data } = await apiClient.patch<unknown>(`/salaires/${id}/payer`);
+export async function payerSalarie(id: string, modePaiement: ModePaiement): Promise<SalarieDTO> {
+  const { data } = await apiClient.patch<unknown>(`/salaires/${id}/payer`, { modePaiement });
   return unwrapApiPayload<SalarieDTO>(data);
 }

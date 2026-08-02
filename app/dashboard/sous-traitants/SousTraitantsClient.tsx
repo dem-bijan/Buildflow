@@ -4,10 +4,13 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   fetchSousTraitants,
   createSousTraitant,
+  updateSousTraitant,
+  deleteSousTraitant,
   type SousTraitantDTO,
   type CreateSousTraitantDTO,
   type SousTraitantStatut,
 } from "@/lib/api/sousTraitants";
+import { useAuth } from "@/lib/authContext";
 import {
   Section, Card,
   KpiGrid,
@@ -27,11 +30,15 @@ const STATUT_STYLES: Record<SousTraitantStatut, { bg: string; text: string; dot:
 };
 
 export default function SousTraitantsClient() {
+  const { user } = useAuth();
+  const canManage = user?.role === "ADMIN" || user?.role === "PM" || user?.role === "ACHAT";
+
   const [sousTraitants, setSousTraitants] = useState<SousTraitantDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<SousTraitantDTO | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -47,6 +54,16 @@ export default function SousTraitantsClient() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const handleDelete = async (s: SousTraitantDTO) => {
+    if (!confirm(`Supprimer le sous-traitant "${s.raisonSociale}" ?`)) return;
+    try {
+      await deleteSousTraitant(s.id);
+      await load();
+    } catch {
+      setError("Impossible de supprimer ce sous-traitant (peut-être référencé par des contrats).");
+    }
+  };
 
   const filtered = search
     ? sousTraitants.filter(s =>
@@ -102,16 +119,19 @@ export default function SousTraitantsClient() {
         </div>
         <div className="flex items-center gap-3">
           <RefreshButton onClick={() => load()} loading={loading} />
-          <PrimaryActionButton onClick={() => setShowForm(v => !v)}>
-            {showForm ? "Fermer" : "+ Nouveau sous-traitant"}
-          </PrimaryActionButton>
+          {canManage && (
+            <PrimaryActionButton onClick={() => { setEditing(null); setShowForm(v => !v); }}>
+              {showForm ? "Fermer" : "+ Nouveau sous-traitant"}
+            </PrimaryActionButton>
+          )}
         </div>
       </div>
 
-      {showForm && (
+      {showForm && canManage && (
         <CreateSousTraitantForm
-          onCreated={() => { setShowForm(false); load(); }}
-          onCancel={() => setShowForm(false)}
+          editing={editing}
+          onCreated={() => { setShowForm(false); setEditing(null); load(); }}
+          onCancel={() => { setShowForm(false); setEditing(null); }}
         />
       )}
 
@@ -130,7 +150,12 @@ export default function SousTraitantsClient() {
               className="w-full sm:w-80 px-4 py-2 text-sm rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark placeholder:text-content-muted/50 focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow"
             />
           </div>
-          <SousTraitantsTable sousTraitants={filtered} />
+          <SousTraitantsTable
+            sousTraitants={filtered}
+            canManage={canManage}
+            onEdit={(s) => { setEditing(s); setShowForm(true); }}
+            onDelete={handleDelete}
+          />
         </Card>
       </Section>
       </>
@@ -171,7 +196,17 @@ function SousTraitantsSkeleton() {
   );
 }
 
-function SousTraitantsTable({ sousTraitants }: { sousTraitants: SousTraitantDTO[] }) {
+function SousTraitantsTable({
+  sousTraitants,
+  canManage,
+  onEdit,
+  onDelete,
+}: {
+  sousTraitants: SousTraitantDTO[];
+  canManage: boolean;
+  onEdit: (s: SousTraitantDTO) => void;
+  onDelete: (s: SousTraitantDTO) => void;
+}) {
   if (sousTraitants.length === 0) {
     return (
       <div className="px-4 py-12 text-center">
@@ -185,7 +220,7 @@ function SousTraitantsTable({ sousTraitants }: { sousTraitants: SousTraitantDTO[
       <table className="w-full text-sm border-collapse min-w-[900px]">
         <thead>
           <tr className="border-b-2 border-edge-default dark:border-edge-default-dark">
-            {["Code", "Raison Sociale", "Spécialité", "Contact", "Téléphone", "Contrats actifs", "Montant payé", "Statut"].map(h => (
+            {["Code", "Raison Sociale", "Spécialité", "Contact", "Téléphone", "Contrats actifs", "Montant payé", "Statut", ...(canManage ? ["Actions"] : [])].map(h => (
               <th key={h} className="text-left px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-content-muted dark:text-content-muted-dark whitespace-nowrap">
                 {h}
               </th>
@@ -210,6 +245,16 @@ function SousTraitantsTable({ sousTraitants }: { sousTraitants: SousTraitantDTO[
                     {style.label}
                   </span>
                 </td>
+                {canManage && (
+                  <td className="px-3 py-3 whitespace-nowrap">
+                    <button onClick={() => onEdit(s)} className="text-xs text-accent font-semibold mr-3">
+                      Modifier
+                    </button>
+                    <button onClick={() => onDelete(s)} className="text-xs text-red-500 font-semibold">
+                      Supprimer
+                    </button>
+                  </td>
+                )}
               </tr>
             );
           })}
@@ -220,14 +265,30 @@ function SousTraitantsTable({ sousTraitants }: { sousTraitants: SousTraitantDTO[
 }
 
 // ─── Create Form ────────────────────────────────────────────────────────────
-function CreateSousTraitantForm({ onCreated, onCancel }: { onCreated: () => void; onCancel: () => void }) {
+function CreateSousTraitantForm({
+  editing,
+  onCreated,
+  onCancel,
+}: {
+  editing: SousTraitantDTO | null;
+  onCreated: () => void;
+  onCancel: () => void;
+}) {
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState("");
-  const [form, setForm] = useState<CreateSousTraitantDTO>({
-    code: "", raisonSociale: "", ice: "", specialite: "",
-    contact: "", telephone: "", email: "", ville: "", adresse: "",
-    statut: "ACTIF",
-  });
+  const [form, setForm] = useState<CreateSousTraitantDTO>(() =>
+    editing
+      ? {
+          code: editing.code, raisonSociale: editing.raisonSociale, ice: editing.ice ?? "",
+          specialite: editing.specialite ?? "", contact: editing.contact ?? "", telephone: editing.telephone ?? "",
+          email: editing.email ?? "", ville: editing.ville ?? "", adresse: editing.adresse ?? "", statut: editing.statut,
+        }
+      : {
+          code: "", raisonSociale: "", ice: "", specialite: "",
+          contact: "", telephone: "", email: "", ville: "", adresse: "",
+          statut: "ACTIF",
+        }
+  );
 
   const set = <K extends keyof CreateSousTraitantDTO>(key: K, val: CreateSousTraitantDTO[K]) =>
     setForm(prev => ({ ...prev, [key]: val }));
@@ -239,10 +300,14 @@ function CreateSousTraitantForm({ onCreated, onCancel }: { onCreated: () => void
     }
     setSubmitting(true); setErr("");
     try {
-      await createSousTraitant(form);
+      if (editing) {
+        await updateSousTraitant(editing.id, form);
+      } else {
+        await createSousTraitant(form);
+      }
       onCreated();
     } catch {
-      setErr("Erreur lors de la création");
+      setErr(editing ? "Erreur lors de la modification" : "Erreur lors de la création");
     } finally {
       setSubmitting(false);
     }
@@ -253,7 +318,9 @@ function CreateSousTraitantForm({ onCreated, onCancel }: { onCreated: () => void
   return (
     <Card className="mb-6 p-5">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-bold text-content-primary dark:text-content-primary-dark">Ajouter un sous-traitant</h3>
+        <h3 className="text-sm font-bold text-content-primary dark:text-content-primary-dark">
+          {editing ? "Modifier le sous-traitant" : "Ajouter un sous-traitant"}
+        </h3>
         <button onClick={onCancel} className="text-xs text-content-muted hover:text-content-primary transition-colors">✕ Annuler</button>
       </div>
       {err && <p className="text-xs text-red-500 mb-3">{err}</p>}
@@ -306,7 +373,7 @@ function CreateSousTraitantForm({ onCreated, onCancel }: { onCreated: () => void
 
       <div className="flex justify-end mt-5">
         <button onClick={submit} disabled={submitting} className="px-6 py-2.5 text-sm font-semibold text-white bg-accent hover:bg-accent/90 rounded-lg disabled:opacity-50 transition-colors">
-          {submitting ? "Création…" : "Enregistrer"}
+          {submitting ? "Enregistrement…" : editing ? "Enregistrer les modifications" : "Enregistrer"}
         </button>
       </div>
     </Card>

@@ -14,6 +14,7 @@ import {
   type TypeTransaction,
 } from "@/lib/api/tresorerie";
 import { fetchChantiers, type ChantierDTO } from "@/lib/api/chantier";
+import { fetchBpuLignes, type BpuLigneDTO } from "@/lib/api/bpu";
 import {
   ChartJsLoader, Section, Card, ChartCard,
   KpiGrid,
@@ -269,7 +270,7 @@ function CaissesTable({
                 {isOpen && (
                   <tr>
                     <td colSpan={6} className="bg-surface-hover dark:bg-surface-hover-dark px-4 py-4">
-                      <TransactionsPanel caisseId={c.id} transactions={tx} onCreated={onChanged} />
+                      <TransactionsPanel caisseId={c.id} chantierId={c.chantierId} transactions={tx} onCreated={onChanged} />
                     </td>
                   </tr>
                 )}
@@ -285,10 +286,12 @@ function CaissesTable({
 // ─── Transactions Panel (inline, per caisse) ────────────────────────────────
 function TransactionsPanel({
   caisseId,
+  chantierId,
   transactions,
   onCreated,
 }: {
   caisseId: string;
+  chantierId: string;
   transactions: Transaction[];
   onCreated: () => void;
 }) {
@@ -297,8 +300,15 @@ function TransactionsPanel({
   const [montant, setMontant] = useState("");
   const [motif, setMotif] = useState("");
   const [referenceDocument, setReferenceDocument] = useState("");
+  const [bpuLigneId, setBpuLigneId] = useState("");
+  const [bpuLignes, setBpuLignes] = useState<BpuLigneDTO[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState("");
+
+  useEffect(() => {
+    if (!showAdd || typeTransaction !== "DEBIT") return;
+    fetchBpuLignes(chantierId).then(setBpuLignes).catch(() => setBpuLignes([]));
+  }, [showAdd, typeTransaction, chantierId]);
 
   const inputCls = "w-full px-3 py-2 text-sm rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow";
 
@@ -319,11 +329,13 @@ function TransactionsPanel({
         montant: parseFloat(montant),
         motif,
         ...(referenceDocument ? { referenceDocument } : {}),
+        ...(typeTransaction === "DEBIT" && bpuLigneId ? { bpuLigneId } : {}),
       };
       await createTransaction(caisseId, payload);
       setMontant("");
       setMotif("");
       setReferenceDocument("");
+      setBpuLigneId("");
       setShowAdd(false);
       onCreated();
     } catch {
@@ -359,6 +371,16 @@ function TransactionsPanel({
             <input className={inputCls} required placeholder="Motif" value={motif} onChange={(e) => setMotif(e.target.value)} />
             <input className={inputCls} placeholder="Référence (optionnel)" value={referenceDocument} onChange={(e) => setReferenceDocument(e.target.value)} />
           </div>
+          {typeTransaction === "DEBIT" && (
+            <div className="mt-3">
+              <select className={inputCls} value={bpuLigneId} onChange={(e) => setBpuLigneId(e.target.value)}>
+                <option value="">Aucune imputation BPU</option>
+                {bpuLignes.map(bl => (
+                  <option key={bl.id} value={bl.id}>{bl.ref} — {bl.designation}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="flex justify-end mt-3">
             <button
               onClick={submit}

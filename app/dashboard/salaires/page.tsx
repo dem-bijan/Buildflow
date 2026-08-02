@@ -17,6 +17,7 @@ import {
 import type { SalarieDTO } from "@/lib/api/salaires";
 import { fetchEmployes, type EmployeDTO } from "@/lib/api/employes";
 import { fetchChantiers, type ChantierDTO } from "@/lib/api/chantier";
+import { fetchBpuLignes, type BpuLigneDTO } from "@/lib/api/bpu";
 
 const emptySalarieForm: CreateSalarieDTO = {
   reference: "",
@@ -47,6 +48,7 @@ export default function SalairesPage() {
   const [employes, setEmployes] = useState<EmployeDTO[]>([]);
   const [chantiers, setChantiers] = useState<ChantierDTO[]>([]);
   const [loadingOptions, setLoadingOptions] = useState(true);
+  const [bpuLignes, setBpuLignes] = useState<BpuLigneDTO[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -76,6 +78,13 @@ export default function SalairesPage() {
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { loadOptions(); }, [loadOptions]);
+  useEffect(() => {
+    if (!form.chantierId) {
+      setBpuLignes([]);
+      return;
+    }
+    fetchBpuLignes(form.chantierId).then(setBpuLignes).catch(() => setBpuLignes([]));
+  }, [form.chantierId]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -95,6 +104,7 @@ export default function SalairesPage() {
         avance: Number(form.avance || 0),
         deductionsCnss: Number(form.deductionsCnss || 0),
         deductionsIr: Number(form.deductionsIr || 0),
+        bpuLigneId: form.bpuLigneId || undefined,
       });
       setShowForm(false);
       setForm(emptySalarieForm);
@@ -174,6 +184,20 @@ export default function SalairesPage() {
                 <option value="">Aucun</option>
                 {chantiers.map((c) => (
                   <option key={c.id} value={c.id}>{c.code} — {c.nom}</option>
+                ))}
+              </select>
+            </label>
+            <label className="text-sm space-y-1">
+              <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Ligne BPU</span>
+              <select
+                value={form.bpuLigneId ?? ""}
+                onChange={(event) => setForm((value) => ({ ...value, bpuLigneId: event.target.value || undefined }))}
+                className="w-full rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow"
+                disabled={!form.chantierId}
+              >
+                <option value="">Aucune imputation</option>
+                {bpuLignes.map((bl) => (
+                  <option key={bl.id} value={bl.id}>{bl.ref} — {bl.designation}</option>
                 ))}
               </select>
             </label>

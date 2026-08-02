@@ -106,7 +106,7 @@ const color = (i: number) => CHART_COLORS[i % CHART_COLORS.length];
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type AchatStatus = "EN_COURS" | "LIVRE" | "FACTURE" | "PAYE";
-export interface LigneAchat { id: string; articleCode: string; designation: string; quantite: number; unite: string; prixUnitaire: number; total: number; }
+export interface LigneAchat { id: string; articleCode: string; designation: string; quantite: number; unite: string; prixUnitaire: number; total: number; bpuLigneRef?: string; }
 export interface Achat { id: string; ref: string; fournisseurNom: string; chantierNom: string; dateCommande: string; dateLivraisonPrevue: string; status: AchatStatus; ht: number; tva: number; ttc: number; lignes: LigneAchat[]; bonLivraisonRef?: string; factureRef?: string; }
 
 export type FournisseurStatut = "ACTIF" | "INACTIF" | "BLACKLISTE";
@@ -137,6 +137,7 @@ export interface PaiementST { id: string; reference: string; montant: number; mo
 export interface EcheanceST { id: string; montant: number; datePrevue: string; datePaiement?: string; statut: PaiementSTStatut; referenceVirement?: string; }
 export interface ContratSousTraitance {
     id: string; reference: string; sousTraitantId: string; sousTraitantRaisonSociale: string; chantierId: string; chantierNom: string; objet: string; montantHt: number; tva: number; montantTtc: number; montantPaye: number; resteAPayer: number; dateDebut: string; dateFin: string; statut: ContratSTStatut;
+    avanceDemandeeHt?: number; retenueGarantieHt?: number; montantRealiseHt?: number; dossierStatut?: "COMPLET" | "INCOMPLET";
 }
 export interface ContratSousTraitanceWithPaiements extends ContratSousTraitance {
     paiements: PaiementST[];

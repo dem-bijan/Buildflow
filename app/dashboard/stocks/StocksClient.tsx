@@ -1,12 +1,20 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { fetchStocksByChantier, type StockArticleDTO } from "@/lib/api/stocks";
+import {
+  fetchStocksByChantier,
+  createMouvementStock,
+  type StockArticleDTO,
+  type TypeMouvement,
+} from "@/lib/api/stocks";
 import { fetchChantiers, type ChantierDTO } from "@/lib/api/chantier";
+import { fetchArticles } from "@/lib/api/articles";
+import { useAuth } from "@/lib/authContext";
 import {
   Section, Card,
   KpiGrid,
   RefreshButton,
+  PrimaryActionButton,
   FadeSwap,
   Skeleton,
   KpiGridSkeleton,
@@ -15,12 +23,26 @@ import {
 import type { KpiItem } from "@/components/Functions";
 
 export default function StocksClient() {
+  const { user } = useAuth();
+  const canManage = user?.role === "ADMIN" || user?.role === "MAGASINIER" || user?.role === "PM";
+
   const [chantiers, setChantiers] = useState<ChantierDTO[]>([]);
   const [chantierId, setChantierId] = useState<string>("");
   const [stocks, setStocks] = useState<StockArticleDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+
+  const [articles, setArticles] = useState<{ id: string; code: string; designation: string }[]>([]);
+  const [showForm, setShowForm] = useState(false);
+  const [movementForm, setMovementForm] = useState<{
+    articleId: string;
+    typeMouvement: TypeMouvement;
+    quantite: number;
+    documentRef: string;
+  }>({ articleId: "", typeMouvement: "ENTREE", quantite: 0, documentRef: "" });
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const loadChantiers = useCallback(async () => {
     try {
@@ -52,6 +74,37 @@ export default function StocksClient() {
 
   useEffect(() => { loadChantiers(); }, [loadChantiers]);
   useEffect(() => { if (chantierId) loadStocks(chantierId); }, [chantierId, loadStocks]);
+  useEffect(() => {
+    fetchArticles(0, 200, "designation,asc")
+      .then((res) => setArticles(res.content.map((a) => ({ id: a.id, code: a.code, designation: a.designation }))))
+      .catch(() => setArticles([]));
+  }, []);
+
+  const handleMovementSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!movementForm.articleId || !movementForm.quantite) {
+      setFormError("Choisissez un article et une quantité.");
+      return;
+    }
+    setSubmitting(true);
+    setFormError(null);
+    try {
+      await createMouvementStock({
+        articleId: movementForm.articleId,
+        chantierId,
+        typeMouvement: movementForm.typeMouvement,
+        quantite: Number(movementForm.quantite),
+        documentRef: movementForm.documentRef || undefined,
+      });
+      setShowForm(false);
+      setMovementForm({ articleId: "", typeMouvement: "ENTREE", quantite: 0, documentRef: "" });
+      await loadStocks(chantierId);
+    } catch {
+      setFormError("Impossible d'enregistrer ce mouvement (quantité insuffisante en stock ?).");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const filtered = search
     ? stocks.filter(s =>
@@ -111,8 +164,92 @@ export default function StocksClient() {
               ))}
             </select>
             <RefreshButton onClick={() => loadStocks(chantierId)} loading={loading} />
+            {canManage && (
+              <PrimaryActionButton onClick={() => setShowForm(v => !v)}>
+                {showForm ? "Fermer" : "+ Mouvement"}
+              </PrimaryActionButton>
+            )}
           </div>
         </div>
+
+        {canManage && showForm && (
+          <form
+            onSubmit={handleMovementSubmit}
+            className="mb-6 rounded-2xl border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark p-4 space-y-5"
+          >
+            <h3 className="text-sm font-semibold text-content-primary dark:text-content-primary-dark">
+              Nouveau mouvement de stock
+            </h3>
+
+            <div className="grid gap-4 md:grid-cols-4">
+              <label className="text-sm space-y-1 md:col-span-2">
+                <span className="text-content-muted">Article</span>
+                <select
+                  required
+                  value={movementForm.articleId}
+                  onChange={(e) => setMovementForm(v => ({ ...v, articleId: e.target.value }))}
+                  className="w-full rounded-lg border border-edge-subtle px-3 py-2"
+                >
+                  <option value="">Choisir un article</option>
+                  {articles.map(a => (
+                    <option key={a.id} value={a.id}>{a.code} — {a.designation}</option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="text-sm space-y-1">
+                <span className="text-content-muted">Type</span>
+                <select
+                  value={movementForm.typeMouvement}
+                  onChange={(e) => setMovementForm(v => ({ ...v, typeMouvement: e.target.value as TypeMouvement }))}
+                  className="w-full rounded-lg border border-edge-subtle px-3 py-2"
+                >
+                  <option value="ENTREE">Entrée (+)</option>
+                  <option value="SORTIE">Sortie (-)</option>
+                  <option value="AJUSTEMENT">Ajustement (+)</option>
+                </select>
+              </label>
+
+              <label className="text-sm space-y-1">
+                <span className="text-content-muted">Quantité</span>
+                <input
+                  type="number"
+                  min="0.001"
+                  step="0.001"
+                  required
+                  value={movementForm.quantite || ""}
+                  onChange={(e) => setMovementForm(v => ({ ...v, quantite: Number(e.target.value) }))}
+                  className="w-full rounded-lg border border-edge-subtle px-3 py-2"
+                />
+              </label>
+
+              <label className="text-sm space-y-1 md:col-span-4">
+                <span className="text-content-muted">Référence document (optionnel)</span>
+                <input
+                  value={movementForm.documentRef}
+                  onChange={(e) => setMovementForm(v => ({ ...v, documentRef: e.target.value }))}
+                  className="w-full rounded-lg border border-edge-subtle px-3 py-2"
+                  placeholder="BL-2026-042"
+                />
+              </label>
+            </div>
+
+            {formError && <p className="text-sm text-red-500">{formError}</p>}
+
+            <div className="flex gap-3">
+              <button
+                type="submit"
+                disabled={submitting}
+                className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                {submitting ? "Enregistrement…" : "Enregistrer"}
+              </button>
+              <button type="button" onClick={() => setShowForm(false)} className="text-sm text-content-muted">
+                Annuler
+              </button>
+            </div>
+          </form>
+        )}
 
         <Section title="Vue d'ensemble">
           <KpiGrid kpis={kpis} />
