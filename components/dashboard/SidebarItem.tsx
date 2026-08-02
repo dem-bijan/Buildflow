@@ -54,7 +54,7 @@ export default function SidebarItem({ href, title, icon: Icon, onClick }: Sideba
             {isActive && (
                 <motion.div
                     layoutId="active-pill"
-                    className="absolute inset-0 bg-white dark:bg-orange-500 dark:text-brand-500 dark:border dark:border-orange-500 rounded-xl -z-10 shadow-sm"
+                    className="absolute inset-0 bg-white dark:bg-accent dark:border dark:border-accent rounded-xl -z-10 shadow-sm"
                     transition={{
                         type: "spring",
                         stiffness: 380,

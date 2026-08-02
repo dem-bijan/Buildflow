@@ -12,12 +12,18 @@ import {
   createContratSousTraitant,
   createPaiement,
   terminerContratSousTraitant,
+  demanderAvance,
+  validerTravaux,
+  ajusterRetenue,
   type ContratSousTraitantDTO,
   type PaiementSousTraitantDTO,
   type CreateContratSousTraitantDTO,
+  type DossierStatut,
 } from "@/lib/api/sousTraitance";
 import { fetchSousTraitants, type SousTraitantDTO } from "@/lib/api/sousTraitants";
 import { fetchChantiers, type ChantierDTO } from "@/lib/api/chantier";
+import { fetchBpuLignes, type BpuLigneDTO } from "@/lib/api/bpu";
+import { useAuth } from "@/lib/authContext";
 import {
   ChartJsLoader,
   Section,
@@ -307,7 +313,8 @@ function ContratsTable({
                 </tr>
                 {isOpen && (
                   <tr>
-                    <td colSpan={9} className="bg-surface-hover dark:bg-surface-hover-dark px-4 py-4">
+                    <td colSpan={9} className="bg-surface-hover dark:bg-surface-hover-dark px-4 py-4 space-y-4">
+                      <FinancialOpsPanel contrat={c} onUpdated={onTerminated} />
                       <PaiementsPanel
                         contratId={c.id}
                         paiements={c.paiements}
@@ -321,6 +328,106 @@ function ContratsTable({
           })}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+// ─── Financial Ops Panel (avance / travaux / retenue, inline per contract) ──
+function FinancialOpsPanel({
+  contrat,
+  onUpdated,
+}: {
+  contrat: ContratSousTraitanceWithPaiements;
+  onUpdated: () => void;
+}) {
+  const { user } = useAuth();
+  const canFieldOps = user?.role === "ADMIN" || user?.role === "PM";
+  const canFinanceOps = user?.role === "ADMIN" || user?.role === "FINANCE";
+
+  const [avance, setAvance] = useState(String(contrat.avanceDemandeeHt ?? 0));
+  const [travaux, setTravaux] = useState(String(contrat.montantRealiseHt ?? 0));
+  const [retenue, setRetenue] = useState(String(contrat.retenueGarantieHt ?? 0));
+  const [dossierStatut, setDossierStatut] = useState<DossierStatut>(contrat.dossierStatut ?? "INCOMPLET");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [err, setErr] = useState("");
+
+  const inputCls = "w-32 px-2 py-1.5 text-sm rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow";
+
+  const run = async (key: string, fn: () => Promise<unknown>) => {
+    setBusy(key);
+    setErr("");
+    try {
+      await fn();
+      onUpdated();
+    } catch {
+      setErr("Action impossible");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  if (!canFieldOps && !canFinanceOps) return null;
+
+  return (
+    <div onClick={(e) => e.stopPropagation()} className="rounded-xl border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark p-4">
+      <h4 className="text-xs font-bold uppercase tracking-wider text-content-muted dark:text-content-muted-dark mb-3">
+        Opérations financières
+      </h4>
+      {err && <p className="text-xs text-red-500 mb-3">{err}</p>}
+
+      <div className="flex flex-wrap items-end gap-6">
+        {canFieldOps && (
+          <>
+            <div className="space-y-1">
+              <span className="text-xs text-content-muted dark:text-content-muted-dark block">Avance demandée (HT)</span>
+              <div className="flex gap-2">
+                <input type="number" min="0" step="0.01" value={avance} onChange={(e) => setAvance(e.target.value)} className={inputCls} />
+                <button
+                  onClick={() => run("avance", () => demanderAvance(contrat.id, Number(avance)))}
+                  disabled={busy === "avance"}
+                  className="px-3 py-1.5 text-xs font-semibold text-accent border border-accent/30 rounded-lg hover:bg-accent/5 disabled:opacity-50 transition-colors"
+                >
+                  {busy === "avance" ? "…" : "Enregistrer"}
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <span className="text-xs text-content-muted dark:text-content-muted-dark block">Travaux réalisés (HT)</span>
+              <div className="flex gap-2">
+                <input type="number" min="0" step="0.01" value={travaux} onChange={(e) => setTravaux(e.target.value)} className={inputCls} />
+                <button
+                  onClick={() => run("travaux", () => validerTravaux(contrat.id, Number(travaux)))}
+                  disabled={busy === "travaux"}
+                  className="px-3 py-1.5 text-xs font-semibold text-accent border border-accent/30 rounded-lg hover:bg-accent/5 disabled:opacity-50 transition-colors"
+                >
+                  {busy === "travaux" ? "…" : "Valider"}
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+
+        {canFinanceOps && (
+          <div className="space-y-1">
+            <span className="text-xs text-content-muted dark:text-content-muted-dark block">Retenue de garantie (HT) &amp; dossier</span>
+            <div className="flex gap-2">
+              <input type="number" min="0" step="0.01" value={retenue} onChange={(e) => setRetenue(e.target.value)} className={inputCls} />
+              <select value={dossierStatut} onChange={(e) => setDossierStatut(e.target.value as DossierStatut)} className={inputCls}>
+                <option value="INCOMPLET">Dossier incomplet</option>
+                <option value="COMPLET">Dossier complet</option>
+              </select>
+              <button
+                onClick={() => run("retenue", () => ajusterRetenue(contrat.id, Number(retenue), dossierStatut))}
+                disabled={busy === "retenue"}
+                className="px-3 py-1.5 text-xs font-semibold text-white bg-accent hover:bg-accent/90 rounded-lg disabled:opacity-50 transition-colors"
+              >
+                {busy === "retenue" ? "…" : "Enregistrer"}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -449,6 +556,7 @@ function PaiementsPanel({
 function CreateContratForm({ onCreated, onCancel }: { onCreated: () => void; onCancel: () => void }) {
   const [sousTraitants, setSousTraitants] = useState<SousTraitantDTO[]>([]);
   const [chantiers, setChantiers] = useState<ChantierDTO[]>([]);
+  const [bpuLignes, setBpuLignes] = useState<BpuLigneDTO[]>([]);
   const [loadingOptions, setLoadingOptions] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState("");
@@ -461,6 +569,7 @@ function CreateContratForm({ onCreated, onCancel }: { onCreated: () => void; onC
     montantHt: 0,
     dateDebut: "",
     dateFin: "",
+    bpuLigneId: "",
   });
 
   useEffect(() => {
@@ -479,6 +588,14 @@ function CreateContratForm({ onCreated, onCancel }: { onCreated: () => void; onC
     loadOptions();
   }, []);
 
+  useEffect(() => {
+    if (!form.chantierId) {
+      setBpuLignes([]);
+      return;
+    }
+    fetchBpuLignes(form.chantierId).then(setBpuLignes).catch(() => setBpuLignes([]));
+  }, [form.chantierId]);
+
   const set = (key: keyof CreateContratSousTraitantDTO, val: string | number) =>
     setForm((prev) => ({ ...prev, [key]: val }));
 
@@ -490,7 +607,7 @@ function CreateContratForm({ onCreated, onCancel }: { onCreated: () => void; onC
     setSubmitting(true);
     setErr("");
     try {
-      await createContratSousTraitant(form);
+      await createContratSousTraitant({ ...form, bpuLigneId: form.bpuLigneId || undefined });
       onCreated();
     } catch {
       setErr("Erreur lors de la création");
@@ -534,6 +651,16 @@ function CreateContratForm({ onCreated, onCancel }: { onCreated: () => void; onC
               <option value="">Sélectionner…</option>
               {chantiers.map((ch) => (
                 <option key={ch.id} value={ch.id}>{ch.nom}</option>
+              ))}
+            </select>
+          </label>
+
+          <label className="space-y-1">
+            <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Ligne BPU</span>
+            <select className={inputCls} value={form.bpuLigneId ?? ""} onChange={(e) => set("bpuLigneId", e.target.value)} disabled={!form.chantierId}>
+              <option value="">Aucune imputation</option>
+              {bpuLignes.map((bl) => (
+                <option key={bl.id} value={bl.id}>{bl.ref} — {bl.designation}</option>
               ))}
             </select>
           </label>

@@ -7,6 +7,7 @@ import apiClient, { toArrayPayload, unwrapApiPayload } from "./client";
 
 export type ContratStatut = "EN_COURS" | "TERMINE" | "RESILIE";
 export type PaiementStatut = "EN_ATTENTE" | "VALIDE" | "PAYE" | "EN_RETARD" | "PARTIELLEMENT_PAYE";
+export type DossierStatut = "COMPLET" | "INCOMPLET";
 
 export interface ContratSousTraitantDTO {
   id: string;
@@ -24,6 +25,11 @@ export interface ContratSousTraitantDTO {
   dateDebut: string; // ISO date
   dateFin: string;   // ISO date
   statut: ContratStatut;
+  avanceDemandeeHt: number;
+  retenueGarantieHt: number;
+  montantRealiseHt: number;
+  dossierStatut: DossierStatut;
+  bpuLigneRef?: string;
 }
 
 export interface PaiementSousTraitantDTO {
@@ -43,6 +49,7 @@ export interface CreateContratSousTraitantDTO {
   montantHt: number;
   dateDebut: string;
   dateFin: string;
+  bpuLigneId?: string;
 }
 
 export interface CreatePaiementDTO {
@@ -138,6 +145,52 @@ export async function terminerContratSousTraitant(
 ): Promise<ContratSousTraitantDTO> {
   const { data } = await apiClient.patch<unknown>(
     `/contrats-sous-traitant/${id}/terminer`
+  );
+  return unwrapApiPayload<ContratSousTraitantDTO>(data);
+}
+
+/**
+ * Field ops (PM): record a cash advance request against the contract.
+ * PATCH /api/v1/contrats-sous-traitant/{id}/avance
+ */
+export async function demanderAvance(
+  id: string,
+  avanceDemandeeHt: number
+): Promise<ContratSousTraitantDTO> {
+  const { data } = await apiClient.patch<unknown>(
+    `/contrats-sous-traitant/${id}/avance`,
+    { avanceDemandeeHt }
+  );
+  return unwrapApiPayload<ContratSousTraitantDTO>(data);
+}
+
+/**
+ * Field ops (PM): validate the amount of work actually completed.
+ * PATCH /api/v1/contrats-sous-traitant/{id}/travaux
+ */
+export async function validerTravaux(
+  id: string,
+  montantRealiseHt: number
+): Promise<ContratSousTraitantDTO> {
+  const { data } = await apiClient.patch<unknown>(
+    `/contrats-sous-traitant/${id}/travaux`,
+    { montantRealiseHt }
+  );
+  return unwrapApiPayload<ContratSousTraitantDTO>(data);
+}
+
+/**
+ * Finance: set the guarantee retention and dossier completeness status.
+ * PATCH /api/v1/contrats-sous-traitant/{id}/retenue
+ */
+export async function ajusterRetenue(
+  id: string,
+  retenueGarantieHt: number,
+  dossierStatut: DossierStatut
+): Promise<ContratSousTraitantDTO> {
+  const { data } = await apiClient.patch<unknown>(
+    `/contrats-sous-traitant/${id}/retenue`,
+    { retenueGarantieHt, dossierStatut }
   );
   return unwrapApiPayload<ContratSousTraitantDTO>(data);
 }

@@ -39,7 +39,7 @@ export default function Header() {
                         {pathname.split("/")[1]}
                     </span>
 
-                    <span className="text-orange-400"> / </span>
+                    <span className="text-accent"> / </span>
 
                     {pathname.split("/")[2]}
                 </span>

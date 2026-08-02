@@ -16,10 +16,15 @@ export async function proxyToBackend(req: NextRequest, backendPath: string) {
     const url = new URL(req.url);
     const backendUrl = `${BACKEND_URL}/api/v1${backendPath}${url.search}`;
 
-    let body = undefined;
+    let body: string | ArrayBuffer | undefined = undefined;
     if (req.method !== "GET" && req.method !== "HEAD") {
         try {
-            body = await req.clone().text();
+            const contentType = req.headers.get("content-type") || "";
+            // Binary bodies (e.g. multipart file uploads) must not be decoded
+            // as text, or the file bytes get corrupted through re-encoding.
+            body = contentType.startsWith("multipart/form-data")
+                ? await req.clone().arrayBuffer()
+                : await req.clone().text();
         } catch {
             // No body
         }
@@ -47,6 +52,12 @@ export async function proxyToBackend(req: NextRequest, backendPath: string) {
 
         if (response.status >= 500) {
             logServerError("proxy.backend_error", { path: backendPath, method: req.method, status: response.status });
+        }
+
+        // Null-body statuses (204/205/304) must not be constructed with a body,
+        // even a null/empty one, or the Response constructor throws.
+        if (response.status === 204 || response.status === 205 || response.status === 304) {
+            return new NextResponse(null, { status: response.status });
         }
 
         // Return the response preserving status code

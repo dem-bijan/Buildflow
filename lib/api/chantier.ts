@@ -61,3 +61,29 @@ export async function createChantier(payload: CreateChantierDTO): Promise<Chanti
     const { data } = await apiClient.post<ChantierDTO>("/chantiers", payload);
     return data;
 }
+
+/**
+ * Update an existing chantier (master data).
+ * PUT /api/v1/chantiers/{id}
+ */
+export async function updateChantier(id: string, payload: CreateChantierDTO): Promise<ChantierDTO> {
+    const { data } = await apiClient.put<ChantierDTO>(`/chantiers/${id}`, payload);
+    return data;
+}
+
+/**
+ * Delete a chantier (master data).
+ * DELETE /api/v1/chantiers/{id}
+ */
+export async function deleteChantier(id: string): Promise<void> {
+    await apiClient.delete(`/chantiers/${id}`);
+}
+
+/**
+ * Start a chantier (EN_PREPARATION -> EN_COURS).
+ * PATCH /api/v1/chantiers/{id}/demarrer
+ */
+export async function demarrerChantier(id: string): Promise<ChantierDTO> {
+    const { data } = await apiClient.patch<ChantierDTO>(`/chantiers/${id}/demarrer`);
+    return data;
+}

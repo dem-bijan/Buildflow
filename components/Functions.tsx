@@ -126,10 +126,10 @@ const STATUS_META: Record<AchatStatus, { label: string; bg: string; text: string
     PAYE: { label: "Payé", bg: "bg-green-100 dark:bg-green-900/30", text: "text-green-700 dark:text-green-400", dot: "#16a34a" },
     LIVRE: { label: "Livré", bg: "bg-blue-100 dark:bg-blue-900/30", text: "text-blue-700 dark:text-blue-400", dot: "#2563eb" },
     FACTURE: { label: "Facturé", bg: "bg-amber-100 dark:bg-amber-900/30", text: "text-amber-700 dark:text-amber-400", dot: "#d97706" },
-    EN_COURS: { label: "En cours", bg: "bg-surface-raised dark:bg-surface-raised-dark", text: "text-content-muted dark:text-content-muted-dark", dot: "#7a6050" },
+    EN_COURS: { label: "En cours", bg: "bg-surface-raised dark:bg-surface-raised-dark", text: "text-content-muted dark:text-content-muted-dark", dot: "#5a6275" },
 };
 
-const CHART_COLORS = ["#e2630a", "#c05a00", "#f5843a", "#7a2e00", "#ffd4b0"] as const;
+const CHART_COLORS = ["#ba1c21", "#8f1619", "#e8333a", "#5c0f12", "#f0aeaf"] as const;
 
 export interface AchatsHydrated {
     kpis: KpiItem[];
@@ -177,8 +177,8 @@ export function hydrateAchats(achats: Achat[]): AchatsHydrated {
     const budgetStacks: MultiSeriesData = {
         labels: orderLabels,
         series: [
-            { label: "HT", data: achats.map(a => a.ht), color: "#e2630a", fill: false },
-            { label: "TVA", data: achats.map(a => a.tva), color: "#ffd4b0", fill: false },
+            { label: "HT", data: achats.map(a => a.ht), color: "#ba1c21", fill: false },
+            { label: "TVA", data: achats.map(a => a.tva), color: "#f0aeaf", fill: false },
         ],
     };
 
@@ -186,8 +186,8 @@ export function hydrateAchats(achats: Achat[]): AchatsHydrated {
     const budgetTrend: MultiSeriesData = {
         labels: orderLabels,
         series: [
-            { label: "HT", data: achats.map(a => a.ht), color: "#e2630a", fill: true, dashed: false },
-            { label: "TVA", data: achats.map(a => a.tva), color: "#c05a00", fill: true, dashed: true },
+            { label: "HT", data: achats.map(a => a.ht), color: "#ba1c21", fill: true, dashed: false },
+            { label: "TVA", data: achats.map(a => a.tva), color: "#8f1619", fill: true, dashed: true },
         ],
     };
 
@@ -431,8 +431,8 @@ export function StackedBarChart({ data }: { data: MultiSeriesData }) {
                 tooltip: { callbacks: { label: (ctx: { dataset: { label: string }; parsed: { y: number } }) => `${ctx.dataset.label} : ${fmt(ctx.parsed.y)}` } },
             },
             scales: {
-                x: { stacked: true, ticks: { font: { size: 11 }, color: "#7a6050" }, grid: { display: false } },
-                y: { stacked: true, ticks: { font: { size: 11 }, color: "#7a6050", callback: (v: number) => `${(v / 1000).toFixed(0)}k` }, grid: { color: "rgba(0,0,0,0.06)" } },
+                x: { stacked: true, ticks: { font: { size: 11 }, color: "#5a6275" }, grid: { display: false } },
+                y: { stacked: true, ticks: { font: { size: 11 }, color: "#5a6275", callback: (v: number) => `${(v / 1000).toFixed(0)}k` }, grid: { color: "rgba(0,0,0,0.06)" } },
             },
         },
     }), [data]);
@@ -474,8 +474,8 @@ export function LineChart({ data }: { data: MultiSeriesData }) {
                 tooltip: { callbacks: { label: (ctx: { dataset: { label: string }; parsed: { y: number } }) => `${ctx.dataset.label} : ${fmt(ctx.parsed.y)}` } },
             },
             scales: {
-                x: { ticks: { font: { size: 11 }, color: "#7a6050", maxRotation: 0 }, grid: { display: false } },
-                y: { ticks: { font: { size: 11 }, color: "#7a6050", callback: (v: number) => `${(v / 1000).toFixed(0)}k` }, grid: { color: "rgba(0,0,0,0.06)" } },
+                x: { ticks: { font: { size: 11 }, color: "#5a6275", maxRotation: 0 }, grid: { display: false } },
+                y: { ticks: { font: { size: 11 }, color: "#5a6275", callback: (v: number) => `${(v / 1000).toFixed(0)}k` }, grid: { color: "rgba(0,0,0,0.06)" } },
             },
         },
     }), [data]);
@@ -500,7 +500,7 @@ export function HorizontalBarChart({ data }: { data: DataPoint[] }) {
             labels: data.map(d => d.label),
             datasets: [{
                 data: data.map(d => d.value),
-                backgroundColor: data.map(d => d.color ?? "#e2630a"),
+                backgroundColor: data.map(d => d.color ?? "#ba1c21"),
                 borderRadius: 4,
             }],
         },
@@ -509,8 +509,8 @@ export function HorizontalBarChart({ data }: { data: DataPoint[] }) {
             responsive: true, maintainAspectRatio: false,
             plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx: { parsed: { x: number } }) => fmt(ctx.parsed.x) } } },
             scales: {
-                x: { ticks: { font: { size: 11 }, color: "#7a6050", callback: (v: number) => `${(v / 1000).toFixed(0)}k` }, grid: { color: "rgba(0,0,0,0.06)" } },
-                y: { ticks: { font: { size: 11 }, color: "#4a3020" }, grid: { display: false } },
+                x: { ticks: { font: { size: 11 }, color: "#5a6275", callback: (v: number) => `${(v / 1000).toFixed(0)}k` }, grid: { color: "rgba(0,0,0,0.06)" } },
+                y: { ticks: { font: { size: 11 }, color: "#3d4350" }, grid: { display: false } },
             },
         },
     }), [data]);
@@ -531,7 +531,7 @@ export function PieChart({ data }: { data: DataPoint[] }) {
             labels: data.map(d => d.label),
             datasets: [{
                 data: data.map(d => d.value),
-                backgroundColor: data.map(d => d.color ?? "#e2630a"),
+                backgroundColor: data.map(d => d.color ?? "#ba1c21"),
                 borderWidth: 2,
                 borderColor: "rgba(255,255,255,0.8)",
             }],
@@ -578,7 +578,7 @@ export function DonutChart({ data }: { data: StatusPoint[] }) {
             labels: data.map(d => d.label),
             datasets: [{
                 data: data.map(d => d.value),
-                backgroundColor: data.map(d => d.color ?? "#e2630a"),
+                backgroundColor: data.map(d => d.color ?? "#ba1c21"),
                 borderWidth: 2,
                 borderColor: "rgba(255,255,255,0.9)",
                 hoverOffset: 4,

@@ -1,7 +1,14 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { fetchFournisseurs, createFournisseur, type CreateFournisseurDTO } from "@/lib/api/fournisseurs";
+import {
+  fetchFournisseurs,
+  createFournisseur,
+  updateFournisseur,
+  deleteFournisseur,
+  type CreateFournisseurDTO,
+} from "@/lib/api/fournisseurs";
+import { useAuth } from "@/lib/authContext";
 import { hydrate } from "@/components/functions2";
 import type { Fournisseur, FournisseursHydrated } from "@/components/functions2";
 import { fournisseursHydrationConfig } from "@/components/functions2";
@@ -23,11 +30,15 @@ import {
 } from "@/components/Functions";
 
 export default function FournisseursClient() {
+  const { user } = useAuth();
+  const canManage = user?.role === "ADMIN" || user?.role === "ACHAT";
+
   const [fournisseurs, setFournisseurs] = useState<Fournisseur[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<Fournisseur | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -50,6 +61,16 @@ export default function FournisseursClient() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const handleDelete = async (f: Fournisseur) => {
+    if (!confirm(`Supprimer le fournisseur "${f.raisonSociale}" ?`)) return;
+    try {
+      await deleteFournisseur(f.id);
+      await load();
+    } catch {
+      setError("Impossible de supprimer ce fournisseur (peut-être référencé par des achats).");
+    }
+  };
 
   const filtered = search
     ? fournisseurs.filter(f =>
@@ -102,17 +123,20 @@ export default function FournisseursClient() {
           </div>
           <div className="flex items-center gap-3">
             <RefreshButton onClick={() => load()} loading={loading} />
-            <PrimaryActionButton onClick={() => setShowForm(!showForm)}>
-              + Nouveau fournisseur
-            </PrimaryActionButton>
+            {canManage && (
+              <PrimaryActionButton onClick={() => { setEditing(null); setShowForm(!showForm); }}>
+                + Nouveau fournisseur
+              </PrimaryActionButton>
+            )}
           </div>
         </div>
 
-        {/* ── Create Form ─────────────────────────────────────────────── */}
-        {showForm && (
+        {/* ── Create/Edit Form ─────────────────────────────────────────── */}
+        {showForm && canManage && (
           <CreateFournisseurForm
-            onCreated={() => { setShowForm(false); load(); }}
-            onCancel={() => setShowForm(false)}
+            editing={editing}
+            onCreated={() => { setShowForm(false); setEditing(null); load(); }}
+            onCancel={() => { setShowForm(false); setEditing(null); }}
           />
         )}
 
@@ -167,7 +191,12 @@ export default function FournisseursClient() {
                 className="w-full sm:w-80 px-4 py-2 text-sm rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark placeholder:text-content-muted/50 focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow"
               />
             </div>
-            <FournisseursTable fournisseurs={filtered} />
+            <FournisseursTable
+              fournisseurs={filtered}
+              canManage={canManage}
+              onEdit={(f) => { setEditing(f); setShowForm(true); }}
+              onDelete={handleDelete}
+            />
           </Card>
         </Section>
         </>
@@ -231,7 +260,17 @@ function FournisseursSkeleton() {
 }
 
 // ─── Fournisseurs Table ─────────────────────────────────────────────────────
-function FournisseursTable({ fournisseurs }: { fournisseurs: Fournisseur[] }) {
+function FournisseursTable({
+  fournisseurs,
+  canManage,
+  onEdit,
+  onDelete,
+}: {
+  fournisseurs: Fournisseur[];
+  canManage: boolean;
+  onEdit: (f: Fournisseur) => void;
+  onDelete: (f: Fournisseur) => void;
+}) {
   const [expanded, setExpanded] = useState<string | null>(null);
 
   if (fournisseurs.length === 0) {
@@ -247,7 +286,7 @@ function FournisseursTable({ fournisseurs }: { fournisseurs: Fournisseur[] }) {
       <table className="w-full text-sm border-collapse min-w-[800px]">
         <thead>
           <tr className="border-b-2 border-edge-default dark:border-edge-default-dark">
-            {["Code", "Raison Sociale", "Ville", "Contact", "Téléphone", "Catégories", "Statut"].map(h => (
+            {["Code", "Raison Sociale", "Ville", "Contact", "Téléphone", "Catégories", "Statut", ...(canManage ? ["Actions"] : [])].map(h => (
               <th key={h} className="text-left px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-content-muted dark:text-content-muted-dark whitespace-nowrap">
                 {h}
               </th>
@@ -308,6 +347,16 @@ function FournisseursTable({ fournisseurs }: { fournisseurs: Fournisseur[] }) {
                     {f.statut === "ACTIF" ? "Actif" : f.statut === "INACTIF" ? "Inactif" : "Blacklisté"}
                   </span>
                 </td>
+                {canManage && (
+                  <td className="px-3 py-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                    <button onClick={() => onEdit(f)} className="text-xs text-accent font-semibold mr-3">
+                      Modifier
+                    </button>
+                    <button onClick={() => onDelete(f)} className="text-xs text-red-500 font-semibold">
+                      Supprimer
+                    </button>
+                  </td>
+                )}
               </tr>
             );
           })}
@@ -318,14 +367,31 @@ function FournisseursTable({ fournisseurs }: { fournisseurs: Fournisseur[] }) {
 }
 
 // ─── Create Form ────────────────────────────────────────────────────────────
-function CreateFournisseurForm({ onCreated, onCancel }: { onCreated: () => void; onCancel: () => void }) {
+function CreateFournisseurForm({
+  editing,
+  onCreated,
+  onCancel,
+}: {
+  editing: Fournisseur | null;
+  onCreated: () => void;
+  onCancel: () => void;
+}) {
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState("");
-  const [form, setForm] = useState<CreateFournisseurDTO>({
-    code: "", raisonSociale: "", ice: "", contact: "", telephone: "",
-    email: "", ville: "", adresse: "", rib: "", banque: "",
-    statut: "ACTIF", categorieArticles: [],
-  });
+  const [form, setForm] = useState<CreateFournisseurDTO>(() =>
+    editing
+      ? {
+          code: editing.code, raisonSociale: editing.raisonSociale, ice: editing.ice ?? "",
+          contact: editing.contact ?? "", telephone: editing.telephone ?? "", email: editing.email ?? "",
+          ville: editing.ville ?? "", adresse: editing.adresse ?? "", rib: editing.rib ?? "", banque: editing.banque ?? "",
+          statut: editing.statut, categorieArticles: editing.categorieArticles ?? [],
+        }
+      : {
+          code: "", raisonSociale: "", ice: "", contact: "", telephone: "",
+          email: "", ville: "", adresse: "", rib: "", banque: "",
+          statut: "ACTIF", categorieArticles: [],
+        }
+  );
   const [categorieInput, setCategorieInput] = useState("");
 
   const set = (key: keyof CreateFournisseurDTO, val: string | string[]) =>
@@ -349,10 +415,14 @@ function CreateFournisseurForm({ onCreated, onCancel }: { onCreated: () => void;
     }
     setSubmitting(true); setErr("");
     try {
-      await createFournisseur(form);
+      if (editing) {
+        await updateFournisseur(editing.id, form);
+      } else {
+        await createFournisseur(form);
+      }
       onCreated();
     } catch {
-      setErr("Erreur lors de la création");
+      setErr(editing ? "Erreur lors de la modification" : "Erreur lors de la création");
     } finally {
       setSubmitting(false);
     }
@@ -363,7 +433,9 @@ function CreateFournisseurForm({ onCreated, onCancel }: { onCreated: () => void;
   return (
     <Card className="mb-6 p-5">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-bold text-content-primary dark:text-content-primary-dark">Ajouter un fournisseur</h3>
+        <h3 className="text-sm font-bold text-content-primary dark:text-content-primary-dark">
+          {editing ? "Modifier le fournisseur" : "Ajouter un fournisseur"}
+        </h3>
         <button onClick={onCancel} className="text-xs text-content-muted hover:text-content-primary transition-colors">✕ Annuler</button>
       </div>
       {err && <p className="text-xs text-red-500 mb-3">{err}</p>}
@@ -437,7 +509,7 @@ function CreateFournisseurForm({ onCreated, onCancel }: { onCreated: () => void;
 
       <div className="flex justify-end mt-5">
         <button onClick={submit} disabled={submitting} className="px-6 py-2.5 text-sm font-semibold text-white bg-accent hover:bg-accent/90 rounded-lg disabled:opacity-50 transition-colors">
-          {submitting ? "Création…" : "Enregistrer"}
+          {submitting ? "Enregistrement…" : editing ? "Enregistrer les modifications" : "Enregistrer"}
         </button>
       </div>
     </Card>

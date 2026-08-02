@@ -103,3 +103,23 @@ export async function createArticle(
   const { data } = await apiClient.post<unknown>("/articles", payload);
   return unwrapApiPayload<ArticleDTO>(data);
 }
+
+/**
+ * Update an existing article.
+ * PUT /api/v1/articles/{id}
+ */
+export async function updateArticle(
+  id: string,
+  payload: CreateArticleDTO
+): Promise<ArticleDTO> {
+  const { data } = await apiClient.put<unknown>(`/articles/${id}`, payload);
+  return unwrapApiPayload<ArticleDTO>(data);
+}
+
+/**
+ * Delete an article.
+ * DELETE /api/v1/articles/{id}
+ */
+export async function deleteArticle(id: string): Promise<void> {
+  await apiClient.delete(`/articles/${id}`);
+}

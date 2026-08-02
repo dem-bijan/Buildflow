@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { fetchChantiers, createChantier } from "@/lib/api/chantier";
+import { useRouter } from "next/navigation";
+import { fetchChantiers, createChantier, updateChantier, deleteChantier, demarrerChantier } from "@/lib/api/chantier";
+import { useAuth } from "@/lib/authContext";
 import { hydrate } from "@/components/functions2";
 import type { Chantier, ChantiersHydrated } from "@/components/functions2";
 import { chantiersHydrationConfig } from "@/components/functions2";
@@ -39,11 +41,16 @@ const STATUT_STYLES: Record<string, { bg: string; text: string; dot: string }> =
 };
 
 export default function SuiviChantiersClient() {
+  const { user } = useAuth();
+  const canManage = user?.role === "ADMIN" || user?.role === "DIRECTEUR" || user?.role === "PM" || user?.role === "CHEF_CHANTIER";
+  const canDelete = user?.role === "ADMIN" || user?.role === "DIRECTEUR";
+
   const [chantiers, setChantiers] = useState<ChantierDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<ChantierDTO | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -70,6 +77,25 @@ export default function SuiviChantiersClient() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const handleDelete = async (c: ChantierDTO) => {
+    if (!confirm(`Supprimer le chantier "${c.nom}" ?`)) return;
+    try {
+      await deleteChantier(c.id);
+      await load();
+    } catch {
+      setError("Impossible de supprimer ce chantier (peut-être référencé par des achats, contrats, etc.).");
+    }
+  };
+
+  const handleDemarrer = async (c: ChantierDTO) => {
+    try {
+      await demarrerChantier(c.id);
+      await load();
+    } catch {
+      setError("Impossible de démarrer ce chantier.");
+    }
+  };
 
   const h = useMemo(
     () => hydrate<Chantier, ChantiersHydrated>(chantiers as unknown as Chantier[], chantiersHydrationConfig),
@@ -121,16 +147,19 @@ export default function SuiviChantiersClient() {
           </div>
           <div className="flex items-center gap-3">
             <RefreshButton onClick={() => load()} loading={loading} />
-            <PrimaryActionButton onClick={() => setShowForm(v => !v)}>
-              {showForm ? "Fermer" : "+ Nouveau chantier"}
-            </PrimaryActionButton>
+            {canManage && (
+              <PrimaryActionButton onClick={() => { setEditing(null); setShowForm(v => !v); }}>
+                {showForm ? "Fermer" : "+ Nouveau chantier"}
+              </PrimaryActionButton>
+            )}
           </div>
         </div>
 
-        {showForm && (
+        {showForm && canManage && (
           <CreateChantierForm
-            onCreated={() => { setShowForm(false); load(); }}
-            onCancel={() => setShowForm(false)}
+            editing={editing}
+            onCreated={() => { setShowForm(false); setEditing(null); load(); }}
+            onCancel={() => { setShowForm(false); setEditing(null); }}
           />
         )}
 
@@ -177,7 +206,14 @@ export default function SuiviChantiersClient() {
                 className="w-full sm:w-80 px-4 py-2 text-sm rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark placeholder:text-content-muted/50 focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow"
               />
             </div>
-            <ChantiersTable chantiers={filtered} />
+            <ChantiersTable
+              chantiers={filtered}
+              canManage={canManage}
+              canDelete={canDelete}
+              onEdit={(c) => { setEditing(c); setShowForm(true); }}
+              onDelete={handleDelete}
+              onDemarrer={handleDemarrer}
+            />
           </Card>
         </Section>
 
@@ -238,7 +274,23 @@ function SuiviChantiersSkeleton() {
   );
 }
 
-function ChantiersTable({ chantiers }: { chantiers: ChantierDTO[] }) {
+function ChantiersTable({
+  chantiers,
+  canManage,
+  canDelete,
+  onEdit,
+  onDelete,
+  onDemarrer,
+}: {
+  chantiers: ChantierDTO[];
+  canManage: boolean;
+  canDelete: boolean;
+  onEdit: (c: ChantierDTO) => void;
+  onDelete: (c: ChantierDTO) => void;
+  onDemarrer: (c: ChantierDTO) => void;
+}) {
+  const router = useRouter();
+
   if (chantiers.length === 0) {
     return (
       <div className="px-4 py-12 text-center">
@@ -252,7 +304,7 @@ function ChantiersTable({ chantiers }: { chantiers: ChantierDTO[] }) {
       <table className="w-full text-sm border-collapse min-w-[900px]">
         <thead>
           <tr className="border-b-2 border-edge-default dark:border-edge-default-dark">
-            {["Code", "Nom", "Client", "Ville", "Statut", "Début", "Fin prévue", "Budget HT", "Avancement"].map(h => (
+            {["Code", "Nom", "Client", "Ville", "Statut", "Début", "Fin prévue", "Budget HT", "Avancement", ...(canManage ? ["Actions"] : [])].map(h => (
               <th key={h} className="text-left px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-content-muted dark:text-content-muted-dark whitespace-nowrap">
                 {h}
               </th>
@@ -263,7 +315,11 @@ function ChantiersTable({ chantiers }: { chantiers: ChantierDTO[] }) {
           {chantiers.map(c => {
             const style = STATUT_STYLES[c.statut] ?? STATUT_STYLES.EN_PREPARATION;
             return (
-              <tr key={c.id} className="border-b border-edge-subtle dark:border-edge-subtle-dark hover:bg-surface-hover dark:hover:bg-surface-hover-dark transition-colors duration-150">
+              <tr
+                key={c.id}
+                onClick={() => router.push(`/dashboard/suivi-chantiers/${c.id}`)}
+                className="border-b border-edge-subtle dark:border-edge-subtle-dark hover:bg-surface-hover dark:hover:bg-surface-hover-dark transition-colors duration-150 cursor-pointer"
+              >
                 <td className="px-3 py-3 font-mono text-xs font-semibold text-accent whitespace-nowrap">{c.code}</td>
                 <td className="px-3 py-3 font-medium text-content-primary dark:text-content-primary-dark max-w-[220px] truncate">{c.nom}</td>
                 <td className="px-3 py-3 text-content-secondary dark:text-content-secondary-dark">{c.client}</td>
@@ -278,6 +334,23 @@ function ChantiersTable({ chantiers }: { chantiers: ChantierDTO[] }) {
                 <td className="px-3 py-3 text-content-secondary dark:text-content-secondary-dark whitespace-nowrap">{c.dateFin}</td>
                 <td className="px-3 py-3 text-content-secondary dark:text-content-secondary-dark whitespace-nowrap">{c.budgetHt.toLocaleString("fr-FR")} MAD</td>
                 <td className="px-3 py-3 text-content-secondary dark:text-content-secondary-dark">{c.avancement}%</td>
+                {canManage && (
+                  <td className="px-3 py-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                    {c.statut === "EN_PREPARATION" && (
+                      <button onClick={() => onDemarrer(c)} className="text-xs text-green-600 dark:text-green-400 font-semibold mr-3">
+                        Démarrer
+                      </button>
+                    )}
+                    <button onClick={() => onEdit(c)} className="text-xs text-accent font-semibold mr-3">
+                      Modifier
+                    </button>
+                    {canDelete && (
+                      <button onClick={() => onDelete(c)} className="text-xs text-red-500 font-semibold">
+                        Supprimer
+                      </button>
+                    )}
+                  </td>
+                )}
               </tr>
             );
           })}
@@ -288,13 +361,30 @@ function ChantiersTable({ chantiers }: { chantiers: ChantierDTO[] }) {
 }
 
 // ─── Create Form ────────────────────────────────────────────────────────────
-function CreateChantierForm({ onCreated, onCancel }: { onCreated: () => void; onCancel: () => void }) {
+function CreateChantierForm({
+  editing,
+  onCreated,
+  onCancel,
+}: {
+  editing: ChantierDTO | null;
+  onCreated: () => void;
+  onCancel: () => void;
+}) {
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState("");
-  const [form, setForm] = useState<CreateChantierDTO>({
-    code: "", nom: "", client: "", adresse: "", ville: "",
-    statut: "EN_PREPARATION", dateDebut: "", dateFin: "", budgetHt: 0, chefProjetNom: "",
-  });
+  const [form, setForm] = useState<CreateChantierDTO>(() =>
+    editing
+      ? {
+          code: editing.code, nom: editing.nom, client: editing.client,
+          adresse: editing.adresse ?? "", ville: editing.ville ?? "", statut: editing.statut,
+          dateDebut: editing.dateDebut, dateFin: editing.dateFin,
+          budgetHt: editing.budgetHt, chefProjetNom: editing.chefProjetNom ?? "",
+        }
+      : {
+          code: "", nom: "", client: "", adresse: "", ville: "",
+          statut: "EN_PREPARATION", dateDebut: "", dateFin: "", budgetHt: 0, chefProjetNom: "",
+        }
+  );
 
   const set = <K extends keyof CreateChantierDTO>(key: K, val: CreateChantierDTO[K]) =>
     setForm(prev => ({ ...prev, [key]: val }));
@@ -306,10 +396,14 @@ function CreateChantierForm({ onCreated, onCancel }: { onCreated: () => void; on
     }
     setSubmitting(true); setErr("");
     try {
-      await createChantier(form);
+      if (editing) {
+        await updateChantier(editing.id, form);
+      } else {
+        await createChantier(form);
+      }
       onCreated();
     } catch {
-      setErr("Erreur lors de la création");
+      setErr(editing ? "Erreur lors de la modification" : "Erreur lors de la création");
     } finally {
       setSubmitting(false);
     }
@@ -320,7 +414,9 @@ function CreateChantierForm({ onCreated, onCancel }: { onCreated: () => void; on
   return (
     <Card className="mb-6 p-5">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-bold text-content-primary dark:text-content-primary-dark">Ajouter un chantier</h3>
+        <h3 className="text-sm font-bold text-content-primary dark:text-content-primary-dark">
+          {editing ? "Modifier le chantier" : "Ajouter un chantier"}
+        </h3>
         <button onClick={onCancel} className="text-xs text-content-muted hover:text-content-primary transition-colors">✕ Annuler</button>
       </div>
       {err && <p className="text-xs text-red-500 mb-3">{err}</p>}
@@ -376,7 +472,7 @@ function CreateChantierForm({ onCreated, onCancel }: { onCreated: () => void; on
 
       <div className="flex justify-end mt-5">
         <button onClick={submit} disabled={submitting} className="px-6 py-2.5 text-sm font-semibold text-white bg-accent hover:bg-accent/90 rounded-lg disabled:opacity-50 transition-colors">
-          {submitting ? "Création…" : "Enregistrer"}
+          {submitting ? "Enregistrement…" : editing ? "Enregistrer les modifications" : "Enregistrer"}
         </button>
       </div>
     </Card>

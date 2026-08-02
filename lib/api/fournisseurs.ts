@@ -57,3 +57,20 @@ export async function createFournisseur(payload: CreateFournisseurDTO): Promise<
   const { data } = await apiClient.post<unknown>("/fournisseurs", payload);
   return unwrapApiPayload<FournisseurDTO>(data);
 }
+
+/**
+ * Update an existing fournisseur.
+ * PUT /api/v1/fournisseurs/{id}
+ */
+export async function updateFournisseur(id: string, payload: CreateFournisseurDTO): Promise<FournisseurDTO> {
+  const { data } = await apiClient.put<unknown>(`/fournisseurs/${id}`, payload);
+  return unwrapApiPayload<FournisseurDTO>(data);
+}
+
+/**
+ * Delete a fournisseur.
+ * DELETE /api/v1/fournisseurs/{id}
+ */
+export async function deleteFournisseur(id: string): Promise<void> {
+  await apiClient.delete(`/fournisseurs/${id}`);
+}

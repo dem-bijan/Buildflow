@@ -17,6 +17,7 @@ export interface Transaction {
   createdAt: string;
   caisseId: string;
   caisseLibelle: string;
+  bpuLigneRef?: string;
 }
 
 export interface Caisse {
@@ -37,6 +38,7 @@ export interface CaisseTransactionDTO {
   motif: string;
   referenceDocument?: string;
   createdAt: string;
+  bpuLigneRef?: string;
 }
 
 export interface CaisseDTO {
@@ -63,6 +65,7 @@ export interface CreateTransactionDTO {
   montant: number;
   motif: string;
   referenceDocument?: string;
+  bpuLigneId?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
