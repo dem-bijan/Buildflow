@@ -419,10 +419,10 @@ export default function DashboardClient() {
           >
             {!canFinanceKpis && (
               <div className="mb-6">
-                <h1 className="text-xl sm:text-2xl font-bold text-white">
+                <h1 className="text-xl sm:text-2xl font-bold text-content-primary dark:text-white">
                   Vue d&apos;ensemble
                 </h1>
-                <p className="text-sm text-gray-400 mt-1">
+                <p className="text-sm text-content-muted dark:text-gray-400 mt-1">
                   Indicateurs clés de tous les modules.
                 </p>
               </div>
@@ -519,7 +519,7 @@ function TopKpiCard({
     <Link href={href} className="block group h-full">
       <div
         className="
-          bg-[#1a1d25] border border-[#242830] rounded-xl
+          bg-surface-card dark:bg-[#1a1d25] border border-edge-default dark:border-[#242830] rounded-xl
           shadow-md p-5 h-full
           flex flex-col justify-between transition-all duration-150
           group-hover:shadow-lg group-hover:border-accent/50
@@ -527,11 +527,11 @@ function TopKpiCard({
         "
       >
         <div className="flex items-center justify-between mb-3 z-10 relative">
-          <span className="text-[10px] font-bold text-[#5a6275] uppercase tracking-widest">{title}</span>
-          <span className="text-[#3d4350] group-hover:text-accent transition-colors text-[10px]">→</span>
+          <span className="text-[10px] font-bold text-content-secondary dark:text-[#5a6275] uppercase tracking-widest">{title}</span>
+          <span className="text-content-muted dark:text-[#3d4350] group-hover:text-accent transition-colors text-[10px]">→</span>
         </div>
-        <div className="text-2xl font-bold font-mono text-content-primary-dark mb-1.5 leading-none z-10 relative">{value}</div>
-        <div className="text-[10px] text-[#5a6275] truncate z-10 relative">{sub}</div>
+        <div className="text-2xl font-bold font-mono text-content-primary dark:text-content-primary-dark mb-1.5 leading-none z-10 relative">{value}</div>
+        <div className="text-[10px] text-content-muted dark:text-[#5a6275] truncate z-10 relative">{sub}</div>
       </div>
     </Link>
   );
@@ -552,19 +552,19 @@ function FinanceKpisSection({
     <div className="module-view active">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-white mb-1">Tableau de Bord Direction</h1>
-          <p className="text-xs text-gray-400">Situation en temps réel — <span id="dash-current-month-text">{month ? `Mois : ${month.split('-')[1]}/${month.split('-')[0]}` : 'Toutes les périodes'}</span></p>
+          <h1 className="text-2xl font-bold text-content-primary dark:text-white mb-1">Tableau de Bord Direction</h1>
+          <p className="text-xs text-content-muted dark:text-gray-400">Situation en temps réel — <span id="dash-current-month-text">{month ? `Mois : ${month.split('-')[1]}/${month.split('-')[0]}` : 'Toutes les périodes'}</span></p>
         </div>
         <input
           type="month"
           id="dash-month-filter"
-          className="w-auto h-10 px-3 bg-surface-card-dark text-content-primary-dark border border-[#242830] rounded-lg outline-none"
+          className="w-auto h-10 px-3 bg-surface-card dark:bg-surface-card-dark text-content-primary dark:text-content-primary-dark border border-edge-default dark:border-[#242830] rounded-lg outline-none"
           value={month}
           onChange={(e) => onMonthChange(e.target.value)}
         />
       </div>
 
-      <h3 className="text-[#5a6275] mb-3 text-[11px] font-bold tracking-wider uppercase">
+      <h3 className="text-content-secondary dark:text-[#5a6275] mb-3 text-[11px] font-bold tracking-wider uppercase">
         <i className="fas fa-coins mr-2"></i>Trésorerie & Dettes (Affichage TTC)
       </h3>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-7">
@@ -572,7 +572,7 @@ function FinanceKpisSection({
           color="red"
           label="DETTES FOURNISSEURS (TTC)"
           value={kpis?.dettesFournisseursTtc}
-          textColor="text-red-500"
+          textColor="text-red-600 dark:text-red-500"
           sub="Déjà payé TTC :"
           subVal={0}
           loading={loading}
@@ -581,7 +581,7 @@ function FinanceKpisSection({
           color="red"
           label="DETTES SOUS-TRAITANTS (TTC)"
           value={kpis?.dettesSousTraitantsTtc}
-          textColor="text-red-500"
+          textColor="text-red-600 dark:text-red-500"
           sub="Déjà payé TTC :"
           subVal={0}
           loading={loading}
@@ -590,7 +590,7 @@ function FinanceKpisSection({
           color="yellow"
           label="PAIE (À PAYER NET)"
           value={kpis?.paieAPayerNet}
-          textColor="text-amber-500"
+          textColor="text-amber-600 dark:text-amber-500"
           sub="Déjà réglée NET :"
           subVal={0}
           loading={loading}
@@ -599,13 +599,13 @@ function FinanceKpisSection({
           color="green"
           label="DÉCAISSEMENTS CAISSE (TTC)"
           value={kpis?.decaissementsCaisseTtc}
-          textColor="text-green-500"
+          textColor="text-green-600 dark:text-green-500"
           sub="Dépenses réelles de caisses"
           loading={loading}
         />
       </div>
 
-      <h3 className="text-[#5a6275] mt-6 mb-3 text-[11px] font-bold tracking-wider uppercase">
+      <h3 className="text-content-secondary dark:text-[#5a6275] mt-6 mb-3 text-[11px] font-bold tracking-wider uppercase">
         <i className="fas fa-chart-line mr-2"></i>Indicateurs Comptables (Affichage TTC, Base Marge HT)
       </h3>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-7">
@@ -613,7 +613,7 @@ function FinanceKpisSection({
           color="green"
           label="ENCAISSEMENTS GLOBAUX (TTC)"
           value={kpis?.encaissementsGlobauxTtc}
-          textColor="text-green-500"
+          textColor="text-green-600 dark:text-green-500"
           sub="Décomptes clients encaissés"
           loading={loading}
         />
@@ -621,7 +621,7 @@ function FinanceKpisSection({
           color="yellow"
           label="ATTACHEMENTS EN COURS (TTC)"
           value={kpis?.attachementsEnCoursTtc}
-          textColor="text-amber-500"
+          textColor="text-amber-600 dark:text-amber-500"
           sub="Travaux validés non encaissés"
           loading={loading}
         />
@@ -629,7 +629,7 @@ function FinanceKpisSection({
           color="white"
           label="DÉCAISSEMENTS GLOBAUX (TTC)"
           value={kpis?.decaissementsGlobauxTtc}
-          textColor="text-white"
+          textColor="text-content-primary dark:text-white"
           sub="Sorties globales (Banque + Caisses)"
           loading={loading}
         />
@@ -637,29 +637,29 @@ function FinanceKpisSection({
           color="blue"
           label="VALEUR STOCKS GLOBALE (HT)"
           value={kpis?.valeurStocksGlobaleHt}
-          textColor="text-blue-500"
-          subNode={<div className="text-[11px] text-[#5a6275] mt-2 flex justify-between font-bold"><span>Dépôts: <span className="text-white">0</span></span><span>En Travaux: <span className="text-amber-500">0</span></span></div>}
+          textColor="text-blue-600 dark:text-blue-500"
+          subNode={<div className="text-[11px] text-content-muted dark:text-[#5a6275] mt-2 flex justify-between font-bold"><span>Dépôts: <span className="text-content-primary dark:text-white">0</span></span><span>En Travaux: <span className="text-amber-600 dark:text-amber-500">0</span></span></div>}
           loading={loading}
         />
       </div>
 
       {/* MARGES */}
-      <div className="bg-surface-card-dark p-6 rounded-xl border border-[#242830] mt-6 flex flex-col sm:flex-row justify-between items-start sm:items-center">
+      <div className="bg-surface-card dark:bg-surface-card-dark p-6 rounded-xl border border-edge-default dark:border-[#242830] mt-6 flex flex-col sm:flex-row justify-between items-start sm:items-center">
         <div>
-          <h4 className="text-sm font-bold text-[#5a6275] uppercase tracking-wider">MARGE NETTE COMPTABLE (HT)</h4>
-          <p className="text-xs text-[#3d4350] mt-1">Formule : Encaissements Réels HT - Décaissements Réels TTC + Valeur des Stocks HT</p>
+          <h4 className="text-sm font-bold text-content-secondary dark:text-[#5a6275] uppercase tracking-wider">MARGE NETTE COMPTABLE (HT)</h4>
+          <p className="text-xs text-content-muted dark:text-[#3d4350] mt-1">Formule : Encaissements Réels HT - Décaissements Réels TTC + Valeur des Stocks HT</p>
         </div>
-        <div className={`text-3xl font-black font-['Space_Grotesk'] mt-4 sm:mt-0 ${kpis?.margeNetteComptableHt && kpis.margeNetteComptableHt < 0 ? "text-red-500" : "text-green-500"}`}>
+        <div className={`text-3xl font-black font-['Space_Grotesk'] mt-4 sm:mt-0 ${kpis?.margeNetteComptableHt && kpis.margeNetteComptableHt < 0 ? "text-red-600 dark:text-red-500" : "text-green-600 dark:text-green-500"}`}>
           {loading ? <Skeleton className="w-32 h-8" /> : `${kpis?.margeNetteComptableHt !== undefined ? fmt(kpis.margeNetteComptableHt) : "—"} MAD`}
         </div>
       </div>
 
-      <div className="bg-surface-card-dark/50 p-4 mb-6 rounded-xl border border-[#242830] mt-4 flex flex-col sm:flex-row justify-between items-start sm:items-center">
+      <div className="bg-surface-card/50 dark:bg-surface-card-dark/50 p-4 mb-6 rounded-xl border border-edge-subtle dark:border-[#242830] mt-4 flex flex-col sm:flex-row justify-between items-start sm:items-center">
         <div>
-          <h4 className="text-xs font-bold text-[#5a6275]  uppercase tracking-wider">MARGE EN COURS (PRÉVISIONNELLE HT)</h4>
-          <p className="text-[10px] text-[#3d4350] mt-1">Formule : Attachements en attente HT - Dettes à payer (Fournisseurs TTC + Sous-traitants TTC + Paie NET)</p>
+          <h4 className="text-xs font-bold text-content-secondary dark:text-[#5a6275] uppercase tracking-wider">MARGE EN COURS (PRÉVISIONNELLE HT)</h4>
+          <p className="text-[10px] text-content-muted dark:text-[#3d4350] mt-1">Formule : Attachements en attente HT - Dettes à payer (Fournisseurs TTC + Sous-traitants TTC + Paie NET)</p>
         </div>
-        <div className={`text-xl font-bold font-['Space_Grotesk'] mt-4 sm:mt-0 ${kpis?.margeEnCoursPrevisionnelleHt && kpis.margeEnCoursPrevisionnelleHt < 0 ? "text-red-500" : "text-green-500"}`}>
+        <div className={`text-xl font-bold font-['Space_Grotesk'] mt-4 sm:mt-0 ${kpis?.margeEnCoursPrevisionnelleHt && kpis.margeEnCoursPrevisionnelleHt < 0 ? "text-red-600 dark:text-red-500" : "text-green-600 dark:text-green-500"}`}>
           {loading ? <Skeleton className="w-24 h-6" /> : `${kpis?.margeEnCoursPrevisionnelleHt !== undefined ? fmt(kpis.margeEnCoursPrevisionnelleHt) : "—"} MAD`}
         </div>
       </div>
@@ -688,18 +688,18 @@ function ModernKpiCard({
 }) {
   const bgClass = color === "red" ? "bg-red-500" : color === "green" ? "bg-green-500" : color === "yellow" ? "bg-amber-500" : color === "blue" ? "bg-blue-500" : "bg-gray-500";
   return (
-    <div className="bg-surface-card-dark border border-[#242830] rounded-xl p-5 relative overflow-hidden">
-      <div className={`absolute top-0 right-0 w-20 h-20 rounded-bl-[80px] opacity-[0.03] ${bgClass}`}></div>
-      <div className="text-[11px] text-[#5a6275] font-semibold mb-2 uppercase tracking-wide z-10 relative">
+    <div className="bg-surface-card dark:bg-surface-card-dark border border-edge-default dark:border-[#242830] rounded-xl p-5 relative overflow-hidden">
+      <div className={`absolute top-0 right-0 w-20 h-20 rounded-bl-[80px] opacity-10 dark:opacity-[0.03] ${bgClass}`}></div>
+      <div className="text-[11px] text-content-secondary dark:text-[#5a6275] font-semibold mb-2 uppercase tracking-wide z-10 relative">
         {label}
       </div>
       <div className={`font-mono text-2xl font-bold mb-1.5 leading-none z-10 relative ${textColor}`}>
         {loading ? <Skeleton className="w-24 h-8" /> : (value !== undefined ? fmt(value) : "0")}
       </div>
-      <div className="text-[10px] text-[#5a6275] mt-2 z-10 relative">
+      <div className="text-[10px] text-content-muted dark:text-[#5a6275] mt-2 z-10 relative">
         {subNode ? subNode : (
           <>
-            {sub} {subVal !== undefined && <span className="text-green-500 font-bold">{fmt(subVal)}</span>}
+            {sub} {subVal !== undefined && <span className="text-green-600 dark:text-green-500 font-bold">{fmt(subVal)}</span>}
           </>
         )}
       </div>
@@ -722,16 +722,16 @@ function DomainCard({
 }) {
   return (
     <Link href={href} className="block group h-full">
-      <div className="bg-surface-card-dark border border-[#242830] rounded-xl p-4 sm:p-5 h-full transition-all duration-150 group-hover:shadow-lg group-hover:border-accent/50">
+      <div className="bg-surface-card dark:bg-surface-card-dark border border-edge-default dark:border-[#242830] rounded-xl p-4 sm:p-5 h-full transition-all duration-150 group-hover:shadow-lg group-hover:border-accent/50">
         <div className="flex items-center justify-between mb-1">
-          <p className="text-[11px] font-bold text-[#5a6275] uppercase tracking-wide">
+          <p className="text-[11px] font-bold text-content-secondary dark:text-[#5a6275] uppercase tracking-wide">
             {title}
           </p>
-          <span className="text-[#3d4350] group-hover:text-accent transition-colors text-xs">→</span>
+          <span className="text-content-muted dark:text-[#3d4350] group-hover:text-accent transition-colors text-xs">→</span>
         </div>
-        <p className="text-xl font-bold font-mono text-[#fafbfd] mb-0.5">{kpi}</p>
-        <p className="text-xs text-[#5a6275] mb-3">{sub}</p>
-        <div className="mt-2 text-white">
+        <p className="text-xl font-bold font-mono text-content-primary dark:text-[#fafbfd] mb-0.5">{kpi}</p>
+        <p className="text-xs text-content-muted dark:text-[#5a6275] mb-3">{sub}</p>
+        <div className="mt-2 text-content-primary dark:text-white">
           {chart}
         </div>
       </div>
