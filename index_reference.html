@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BuildFlow ERP — BTP</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,200;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,900;1,9..40,400&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+  :root {
+    --red: #BA1C21; --red-dark: #8F1619; --red-light: #E8333A;
+    --gray-900: #111318; --gray-800: #1A1D25; --gray-700: #242830;
+    --gray-600: #2E333D; --gray-500: #3D4350; --gray-400: #5A6275;
+    --gray-300: #8891A5; --gray-200: #B4BBCE; --white: #FAFBFD;
+    --success: #1DB954; --warning: #F5A623; --danger: #E74C3C; --info: #3B82F6;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--gray-900); color: var(--gray-200); overflow: hidden; height: 100vh; }
+  h1, h2, h3, h4, h5 { font-family: 'Space Grotesk', sans-serif; }
+  ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: var(--gray-600); border-radius: 3px; }
+
+  .sidebar { width: 260px; background: var(--gray-800); border-right: 1px solid var(--gray-700); height: 100vh; position: fixed; left: 0; top: 0; z-index: 50; display: flex; flex-direction: column; }
+  .sidebar-logo { padding: 24px 20px; border-bottom: 1px solid var(--gray-700); display: flex; align-items: center; gap: 12px; }
+  .logo-icon { width: 40px; height: 40px; background: var(--red); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; color: white; font-weight: 700; font-family: 'Space Grotesk', sans-serif; }
+  .nav-section { padding: 16px 12px 8px; font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--gray-500); font-weight: 600; }
+  .nav-item { display: flex; align-items: center; gap: 12px; padding: 11px 16px; margin: 2px 8px; border-radius: 8px; cursor: pointer; color: var(--gray-300); font-size: 14px; font-weight: 500; position: relative; }
+  .nav-item:hover { background: var(--gray-700); color: var(--white); }
+  .nav-item.active { background: rgba(186, 28, 33, 0.12); color: var(--red-light); }
+  .nav-item.active::before { content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 3px; height: 24px; background: var(--red); border-radius: 0 3px 3px 0; }
+  
+  .main-area { margin-left: 260px; height: 100vh; display: flex; flex-direction: column; }
+  .top-header { height: 64px; background: var(--gray-800); border-bottom: 1px solid var(--gray-700); display: flex; align-items: center; justify-content: space-between; padding: 0 28px; flex-shrink: 0; }
+  .content-area { flex: 1; overflow-y: auto; padding: 28px; background: var(--gray-900); }
+  
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+  .kpi-card { background: var(--gray-800); border: 1px solid var(--gray-700); border-radius: 12px; padding: 20px; position: relative; overflow: hidden; }
+  .kpi-card::after { content: ''; position: absolute; top: 0; right: 0; width: 80px; height: 80px; border-radius: 0 12px 0 80px; opacity: 0.03; }
+  .kpi-card.red::after { background: var(--danger); } .kpi-card.green::after { background: var(--success); } .kpi-card.yellow::after { background: var(--warning); } .kpi-card.blue::after { background: var(--info); }
+  .kpi-label { font-size: 11px; color: var(--gray-400); font-weight: 600; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .kpi-value { font-family: 'Space Grotesk', sans-serif; font-size: 24px; font-weight: 700; margin-bottom: 6px; line-height: 1; }
+  
+  .panel { background: var(--gray-800); border: 1px solid var(--gray-700); border-radius: 12px; overflow: hidden; margin-bottom: 24px; }
+  .panel-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px; border-bottom: 1px solid var(--gray-700); }
+  .panel-body { padding: 20px; }
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table thead th { text-align: left; padding: 10px 14px; font-size: 11px; text-transform: uppercase; color: var(--gray-500); font-weight: 600; border-bottom: 1px solid var(--gray-700); }
+  .data-table tbody td { padding: 12px 14px; font-size: 13px; color: var(--gray-200); border-bottom: 1px solid var(--gray-700); }
+  .data-table tbody tr:hover { background: var(--gray-700); }
+  
+  .badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; }
+  .badge-success { background: rgba(29,185,84,0.12); color: var(--success); border: 1px solid rgba(29,185,84,0.3); }
+  .badge-warning { background: rgba(245,166,35,0.12); color: var(--warning); border: 1px solid rgba(245,166,35,0.3); }
+  .badge-danger { background: rgba(231,76,60,0.12); color: var(--danger); border: 1px solid rgba(231,76,60,0.3); }
+  .badge-info { background: rgba(59,130,246,0.12); color: var(--info); }
+
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 9px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all 0.2s; }
+  .btn-primary { background: var(--red); color: white; } .btn-primary:hover { background: var(--red-dark); }
+  .btn-secondary { background: var(--gray-700); color: var(--gray-200); border: 1px solid var(--gray-600); }
+  .btn-success { background: var(--success); color: white; }
+  .btn-danger { background: var(--danger); color: white; }
+  .btn-warning { background: var(--warning); color: var(--gray-900); }
+  .btn-info { background: var(--info); color: white; }
+  .btn-sm { padding: 6px 12px; font-size: 12px; }
+  .btn-ghost { background: transparent; color: var(--gray-400); padding: 6px 10px; } .btn-ghost:hover { color: var(--danger); }
+  
+  .text-danger { color: var(--danger) !important; } .text-success { color: var(--success) !important; } .text-warning { color: var(--warning) !important; }
+
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 100; display: none; align-items: center; justify-content: center; }
+  .modal-overlay.show { display: flex; }
+  .modal-box { background: var(--gray-800); border: 1px solid var(--gray-700); border-radius: 16px; width: 560px; max-height: 85vh; overflow-y: auto; }
+  .modal-box.wide { width: 950px; }
+  .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; border-bottom: 1px solid var(--gray-700); }
+  .modal-body { padding: 24px; }
+  .form-group { margin-bottom: 18px; }
+  .form-label { display: block; font-size: 11px; font-weight: 600; color: var(--gray-400); margin-bottom: 6px; text-transform: uppercase; }
+  .form-input, .form-select { width: 100%; padding: 10px 14px; background: var(--gray-700); border: 1px solid var(--gray-600); border-radius: 8px; color: var(--gray-200); font-size: 14px; outline: none; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .chantier-card { background: var(--gray-800); border: 1px solid var(--gray-700); border-radius: 12px; padding: 20px; cursor: pointer; }
+  .progress-bar { width: 100%; height: 6px; background: var(--gray-700); border-radius: 3px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 3px; transition: width 0.8s ease; }
+  .c-tabs { display: flex; gap: 20px; border-bottom: 1px solid var(--gray-700); margin-bottom: 20px; }
+  .c-tab { padding: 10px 0; color: var(--gray-400); font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent; }
+  .c-tab.active { color: var(--red); border-bottom-color: var(--red); }
+  .c-tab-content { display: none; } .c-tab-content.active { display: block; }
+  .module-view { display: none; } .module-view.active { display: block; animation: fadeSlide 0.35s ease; }
+  @keyframes fadeSlide { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  
+  .toast-container { position: fixed; top: 80px; right: 28px; z-index: 999; display: flex; flex-direction: column; gap: 8px; }
+  .toast { background: var(--gray-800); border: 1px solid var(--gray-700); border-radius: 10px; padding: 14px 18px; display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--gray-200); box-shadow: 0 8px 32px rgba(0,0,0,0.4); animation: toastIn 0.3s ease, toastOut 0.3s ease 3.7s forwards; }
+  @keyframes toastIn { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
+  @keyframes toastOut { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(40px); } }
+
+  #loader-overlay { position: fixed; inset: 0; background: var(--gray-900); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.5s; }
+  .spinner { border: 4px solid rgba(186, 28, 33, 0.1); border-left-color: var(--red); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 20px; }
+  @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  
+  .sync-indicator { display: inline-flex; align-items: center; font-size: 11px; color: var(--gray-400); margin-left: 15px; }
+  .sync-indicator.syncing { color: var(--info); animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+</style>
+</head>
+<body>
+
+<div id="loader-overlay"><div class="spinner"></div><div class="text-white font-bold">BuildFlow ERP — Synchronisation...</div></div>
+<input type="file" id="excel-upload" style="display:none;" accept=".xlsx, .xls" onchange="handleBPUImport(event)">
+
+<aside class="sidebar">
+  <div class="sidebar-logo"><div class="logo-icon">BF</div><div><div class="text-white font-bold text-base font-['Space_Grotesk']">BuildFlow</div><div class="text-[10px] text-gray-500 tracking-wider">ERP BTP</div></div></div>
+  <nav style="flex:1; overflow-y:auto; padding: 8px 0;">
+    <div class="nav-section">Principal</div>
+    <div class="nav-item active" data-module="dashboard" onclick="switchModule('dashboard')"><i class="fas fa-th-large"></i> Tableau de bord</div>
+    <div class="nav-item" data-module="achats" onclick="switchModule('achats')"><i class="fas fa-shopping-cart"></i> Achats & Commandes</div>
+    <div class="nav-item" data-module="stock" onclick="switchModule('stock')"><i class="fas fa-boxes-stacked"></i> Gestion des Stocks</div>
+    <div class="nav-section">Opérations & Terrain</div>
+    <div class="nav-item" data-module="chantiers" onclick="switchModule('chantiers')"><i class="fas fa-hard-hat"></i> Suivi Chantiers</div>
+    <div class="nav-item" data-module="caisse" onclick="switchModule('caisse')"><i class="fas fa-wallet"></i> Trésorerie & Caisse</div>
+    <div class="nav-item" data-module="sous-traitance" onclick="switchModule('sous-traitance')"><i class="fas fa-handshake"></i> Sous-traitance</div>
+    <div class="nav-item" data-module="paie" onclick="switchModule('paie')"><i class="fas fa-users"></i> Paie & Salaires</div>
+    <div class="nav-section">Bases de données</div>
+    <div class="nav-item" data-module="db-chantiers" onclick="switchModule('db-chantiers')"><i class="fas fa-map-marked-alt"></i> Affectations (Projets)</div>
+    <div class="nav-item" data-module="db-articles" onclick="switchModule('db-articles')"><i class="fas fa-list-ul"></i> Catalogue Articles</div>
+    <div class="nav-item" data-module="db-fournisseurs" onclick="switchModule('db-fournisseurs')"><i class="fas fa-building"></i> Fournisseurs</div>
+    <div class="nav-item" data-module="db-soustraitants" onclick="switchModule('db-soustraitants')"><i class="fas fa-users-cog"></i> Annuaire ST</div>
+  </nav>
+</aside>
+
+<div class="main-area">
+  <header class="top-header">
+    <div class="search-bar"><i class="fas fa-search text-gray-500"></i><input type="text" placeholder="Rechercher..."></div>
+    <div class="flex items-center gap-4">
+      <div id="sync-status" class="sync-indicator"><i class="fas fa-cloud text-[10px] mr-1"></i> À jour</div>
+      <div class="flex items-center gap-2 bg-gray-700 px-3 py-1.5 rounded-lg border border-gray-600">
+        <label class="text-xs font-bold text-gray-400 uppercase">Poste Actif :</label>
+        <select id="user-role" class="bg-transparent text-white font-bold text-xs outline-none cursor-pointer" onchange="updateRoleContext()">
+          <option value="admin" class="bg-gray-800">Directeur Général (Admin)</option>
+          <option value="rh" class="bg-gray-800">Ressources Humaines (RH)</option>
+          <option value="finance" class="bg-gray-800">Service Finance</option>
+          <option value="pm" class="bg-gray-800">Chef de Projet / Terrain</option>
+          <option value="achat" class="bg-gray-800">Service Achat</option>
+        </select>
+      </div>
+      <div class="user-avatar" id="avatar-initials">AD</div>
+    </div>
+  </header>
+
+  <div class="content-area" id="contentArea">
+    <!-- DASHBOARD VIEW -->
+    <div class="module-view active" id="mod-dashboard">
+      <div class="flex items-center justify-between mb-6">
+        <div><h1 class="text-2xl font-bold text-white mb-1">Tableau de Bord Direction</h1><p class="text-xs text-gray-400">Situation en temps réel — <span id="dash-current-month-text"></span></p></div>
+        <input type="month" id="dash-month-filter" class="form-input w-auto h-10 px-3" onchange="renderDashboard()">
+      </div>
+      <h3 class="text-gray-500 mb-3 text-[11px] font-bold tracking-wider uppercase"><i class="fas fa-coins mr-2"></i>Trésorerie & Dettes (Affichage TTC)</h3>
+      <div class="kpi-grid">
+        <div class="kpi-card red"><div class="kpi-label">DETTES FOURNISSEURS (TTC)</div><div class="kpi-value text-danger" id="dash-fourn-impaye">0</div><div class="text-[10px] text-gray-400 mt-2">Déjà payé TTC : <span class="text-success font-bold" id="dash-fourn-paye">0</span></div></div>
+        <div class="kpi-card red"><div class="kpi-label">DETTES SOUS-TRAITANTS (TTC)</div><div class="kpi-value text-danger" id="dash-st-impaye">0</div><div class="text-[10px] text-gray-400 mt-2">Déjà payé TTC : <span class="text-success font-bold" id="dash-st-paye">0</span></div></div>
+        <div class="kpi-card yellow"><div class="kpi-label">PAIE (À PAYER NET)</div><div class="kpi-value text-warning" id="dash-paie-impaye">0</div><div class="text-[10px] text-gray-400 mt-2">Déjà réglée NET : <span class="text-success font-bold" id="dash-paie-paye">0</span></div></div>
+        <div class="kpi-card green"><div class="kpi-label">DÉCAISSEMENTS CAISSE (TTC)</div><div class="kpi-value text-success" id="dash-caisse-decaisse">0</div><div class="text-[10px] text-gray-400 mt-2">Dépenses réelles de caisses</div></div>
+      </div>
+      <h3 class="text-gray-500 mt-6 mb-3 text-[11px] font-bold tracking-wider uppercase"><i class="fas fa-chart-line mr-2"></i>Indicateurs Comptables (Affichage TTC, Base Marge HT)</h3>
+      <div class="kpi-grid">
+        <div class="kpi-card green"><div class="kpi-label">ENCAISSEMENTS GLOBAUX (TTC)</div><div class="kpi-value text-success" id="dash-ca">0</div><div class="text-[10px] text-gray-500 mt-2">Décomptes clients encaissés</div></div>
+        <div class="kpi-card yellow"><div class="kpi-label">ATTACHEMENTS EN COURS (TTC)</div><div class="kpi-value text-warning" id="dash-attachements">0</div><div class="text-[10px] text-gray-500 mt-2">Travaux validés non encaissés</div></div>
+        <div class="kpi-card text-white"><div class="kpi-label">DÉCAISSEMENTS GLOBAUX (TTC)</div><div class="kpi-value" id="dash-decaissements">0</div><div class="text-[10px] text-gray-500 mt-2">Sorties globales (Banque + Caisses)</div></div>
+        <div class="kpi-card blue"><div class="kpi-label">VALEUR STOCKS GLOBALE (HT)</div><div class="kpi-value text-info" id="dash-stock-total">0 MAD</div><div class="text-[11px] text-gray-400 mt-2 flex justify-between font-bold"><span>Dépôts: <span class="text-white" id="dash-stock-dispo">0</span></span><span>En Travaux: <span class="text-warning" id="dash-stock-travaux">0</span></span></div></div>
+      </div>
+      
+      <!-- MARGES -->
+      <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 mt-6 flex justify-between items-center">
+        <div><h4 class="text-sm font-bold text-gray-400 uppercase tracking-wider">MARGE NETTE COMPTABLE (HT)</h4><p class="text-xs text-gray-500 mt-1">Formule : Encaissements Réels HT - Décaissements Réels TTC + Valeur des Stocks HT</p></div>
+        <div class="text-3xl font-black font-['Space_Grotesk']" id="dash-marge">0 MAD</div>
+      </div>
+      <div class="bg-gray-800/50 p-4 rounded-xl border border-gray-700 mt-4 flex justify-between items-center">
+        <div><h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider">MARGE EN COURS (PRÉVISIONNELLE HT)</h4><p class="text-[10px] text-gray-500 mt-1">Formule : Attachements en attente HT - Dettes à payer (Fournisseurs TTC + Sous-traitants TTC + Paie NET)</p></div>
+        <div class="text-xl font-bold font-['Space_Grotesk']" id="dash-marge-cours">0 MAD</div>
+      </div>
+    </div>
+
+    <!-- MODULE ACHATS -->
+    <div class="module-view" id="mod-achats">
+      <div class="flex items-center justify-between mb-6"><div><h1 class="text-2xl font-bold text-white">Achats & Commandes</h1></div><button class="btn btn-primary" id="btn-new-achat" onclick="openAchatModal();"><i class="fas fa-plus"></i> Nouvelle Commande</button></div>
+      <div class="panel">
+        <div class="panel-header">
+            <span class="panel-title">Suivi Logistique & Facturation</span>
+            <select id="filter-achat-status" class="form-select w-auto h-8 text-xs py-0 bg-gray-700 text-white border-gray-600" onchange="renderAchats()">
+                <option value="all">Tous les statuts</option>
+                <option value="En cours">En cours (Attente BL)</option>
+                <option value="Livré">Livré (Attente Facture)</option>
+                <option value="Facturé">Facturé (Attente Paiement)</option>
+                <option value="Payé">Payé</option>
+            </select>
+        </div>
+        <div class="panel-body p-0"><table class="data-table"><thead><tr><th>Date</th><th>Référence</th><th>Fournisseur</th><th>Affectation</th><th>Total TTC</th><th>Statut</th><th>Actions</th></tr></thead><tbody id="achatsTableBody"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- MODULE STOCK -->
+    <div class="module-view" id="mod-stock">
+      <div class="flex items-center justify-between mb-6"><div><h1 class="text-2xl font-bold text-white">Gestion des Stocks</h1></div><button class="btn btn-primary" id="btn-mvt-stock" onclick="openModalStock()"><i class="fas fa-exchange-alt"></i> Mouvement Libre</button></div>
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">Inventaire & Matériaux Posés</span><select id="filter-stock-chantier" class="form-select w-auto h-8 text-xs py-0 bg-gray-700 text-white border-gray-600" onchange="renderStock()"></select></div>
+        <div class="panel-body p-0"><table class="data-table"><thead><tr><th>Code</th><th>Désignation</th><th>Affectation / Magasin</th><th>Stock Dispo</th><th>Stock Travaux (Posé)</th><th>U</th><th>Valeur Totale HT</th><th>Actions</th></tr></thead><tbody id="stockTableBody"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- MODULE CHANTIERS -->
+    <div class="module-view" id="mod-chantiers">
+      <div id="view-chantiers-list">
+        <div class="flex items-center justify-between mb-6"><div><h1 class="text-2xl font-bold text-white">Suivi Analytique des Chantiers</h1></div><button class="btn btn-primary" id="btn-init-chantier" onclick="openModalInitChantier()"><i class="fas fa-play"></i> Démarrer un Chantier</button></div>
+        <div class="chantier-grid grid grid-cols-2 gap-6" id="chantierGrid"></div>
+      </div>
+      <div id="view-chantier-detail" style="display:none; animation: fadeSlide 0.3s ease;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;">
+            <button class="btn btn-secondary btn-sm" onclick="closeChantierDetail()"><i class="fas fa-arrow-left"></i> Retour</button>
+            <button class="btn btn-ghost text-danger" id="btn-delete-chantier" onclick="deleteChantierActif()"><i class="fas fa-trash"></i> Supprimer ce suivi de projet</button>
+        </div>
+        <div class="flex justify-between items-end mb-6"><div><h1 class="text-3xl font-bold text-white font-['Space_Grotesk']" id="cd-nom"></h1><p class="text-xs text-gray-400 mt-1"><i class="fas fa-map-marker-alt"></i> <span id="cd-adresse"></span></p></div><div class="text-right"><span class="text-xs text-gray-500 block">Avancement global (Sur budget initial)</span><span class="text-2xl font-black text-success font-['Space_Grotesk']" id="cd-avancement">0%</span></div></div>
+        <div class="c-tabs"><div class="c-tab active" onclick="switchCTab('bpu', this)">BPU & Consommation Budget</div><div class="c-tab" onclick="switchCTab('decomptes', this)">Attachements & Encaissements</div></div>
+        <div id="ctab-bpu" class="c-tab-content active">
+          <div class="panel"><div class="panel-header"><span class="panel-title">Suivi des Postes du Marché</span><button class="btn btn-success btn-sm" onclick="document.getElementById('excel-upload').click();"><i class="fas fa-file-excel"></i> Importer Marché Excel</button></div><div class="panel-body p-0 overflow-x-auto"><table class="data-table"><thead><tr><th>Réf</th><th>Désignation</th><th>U</th><th>Qté Prévu</th><th>PU HT</th><th>Budget Prévu HT</th><th>Réalisé (Saisi)</th><th>Dépensé/Engagé Réel HT</th><th>Alerte Budget</th></tr></thead><tbody id="bpuTableBody"></tbody></table></div></div>
+        </div>
+        <div id="ctab-decomptes" class="c-tab-content">
+          <div class="panel"><div class="panel-header"><span class="panel-title">Attachements et Décomptes (Encaissements)</span><button class="btn btn-primary btn-sm" id="btn-new-decompte" onclick="openModalDecompte()"><i class="fas fa-plus"></i> Créer un Attachement (Situation)</button></div><div class="panel-body p-0"><table class="data-table"><thead><tr><th>N° Pièce</th><th>Date</th><th>Montant (TTC)</th><th>Statut</th><th>Action</th></tr></thead><tbody id="decomptesTableBody"></tbody></table></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODULE CAISSE -->
+    <div class="module-view" id="mod-caisse">
+      <div class="flex items-center justify-between mb-6"><div><h1 class="text-2xl font-bold text-white">Trésorerie & Caisses Terrain</h1></div><button class="btn btn-primary" onclick="openModalCaisse()"><i class="fas fa-plus"></i> Créer une Caisse</button></div>
+      <div class="panel"><div class="panel-header"><span class="panel-title">Liste des Caisses Actives</span><select id="filter-caisse-chantier" class="form-select w-auto h-8 text-xs py-0 bg-gray-700 text-white border-gray-600" onchange="renderCaisses()"></select></div><div class="panel-body p-0"><table class="data-table"><thead><tr><th>Affectation / Caisse</th><th>Responsable</th><th>Solde Actuel TTC</th><th>Seuil</th><th>Statut</th><th>Transactions</th><th>Actions</th></tr></thead><tbody id="caisseTableBody"></tbody></table></div></div>
+      <div class="panel"><div class="panel-header"><span class="panel-title">Historique Réel des Flux Caisse</span></div><div class="panel-body p-0"><table class="data-table"><thead><tr><th>Date</th><th>Caisse</th><th>Type</th><th>Imputation BPU</th><th>Motif / Libellé</th><th>Montant (TTC)</th><th>Action</th></tr></thead><tbody id="caisseMouvementsBody"></tbody></table></div></div>
+    </div>
+
+    <!-- MODULE SOUS-TRAITANCE -->
+    <div class="module-view" id="mod-sous-traitance">
+      <div class="flex items-center justify-between mb-6"><div><h1 class="text-2xl font-bold text-white">Suivi des Contrats Sous-traitance</h1></div><button class="btn btn-primary" id="btn-new-st" onclick="openModalContratST()"><i class="fas fa-plus"></i> Nouveau Contrat ST</button></div>
+      <div class="panel"><div class="panel-header"><span class="panel-title">Contrats Actifs</span><select id="filter-st-chantier" class="form-select w-auto h-8 text-xs py-0 bg-gray-700 text-white border-gray-600" onchange="renderContratsST()"></select></div><div class="panel-body p-0 overflow-x-auto"><table class="data-table"><thead><tr><th>Entreprise ST</th><th>Spécialité</th><th>Affectation</th><th>Imputation BPU</th><th>Contrat HT</th><th>Réalisé (Facture) HT</th><th>Avance Demandée HT</th><th>Payé TTC</th><th>Retenue (RG) HT</th><th>Reste à Régler TTC</th><th>Dossier</th><th>Actions</th></tr></thead><tbody id="stContratsBody"></tbody></table></div></div>
+    </div>
+
+    <!-- MODULE PAIE -->
+    <div class="module-view" id="mod-paie">
+      <div class="flex items-center justify-between mb-6"><div><h1 class="text-2xl font-bold text-white">Paie & Suivi Salaires</h1><p class="text-xs text-gray-400 mt-1">Le RH émet les demandes de paie, le service Finance débloque le paiement (Virement ou Caisse).</p></div><button class="btn btn-primary" id="btn-new-paie" onclick="openModalCreatePaie()"><i class="fas fa-plus"></i> Émettre une Demande de Paie</button></div>
+      <div class="panel"><div class="panel-header"><span class="panel-title">Historique & Paiements de la Main-d'œuvre</span><select id="filter-paie-chantier" class="form-select w-auto h-8 text-xs py-0 bg-gray-700 text-white border-gray-600" onchange="renderPaie()"></select></div><div class="panel-body p-0"><table class="data-table"><thead><tr><th>Date Émission</th><th>Désignation / Période</th><th>Affectation & Imputation BPU</th><th>Montant (NET)</th><th>Statut</th><th>Actions</th></tr></thead><tbody id="paieTableBody"></tbody></table></div></div>
+    </div>
+
+    <!-- ANNUAIRES & CATALOGUES SYSTEME -->
+    <div class="module-view" id="mod-db-chantiers"><div class="flex justify-between items-center mb-6"><div><h1 class="text-2xl font-bold text-white">Bases de Données : Affectations</h1></div><button class="btn btn-primary" onclick="openModalDBChantier()"><i class="fas fa-plus"></i> Ajouter une Affectation</button></div><div class="panel"><div class="panel-body p-0"><table class="data-table"><thead><tr><th>Nom (Projet / Dépôt / Magasin)</th><th>Adresse / Localisation</th><th>Actions</th></tr></thead><tbody id="dbChantiersBody"></tbody></table></div></div></div>
+    <div class="module-view" id="mod-db-articles"><div class="flex justify-between items-center mb-6"><div><h1 class="text-2xl font-bold text-white">Catalogue Général Articles</h1></div><button class="btn btn-primary" onclick="openModalArticle()"><i class="fas fa-plus"></i> Nouvel Article</button></div><div class="panel"><div class="panel-body p-0"><table class="data-table"><thead><tr><th>Code</th><th>Désignation</th><th>Unité</th><th>Prix Réf HT</th><th>Actions</th></tr></thead><tbody id="dbArticlesBody"></tbody></table></div></div></div>
+    <div class="module-view" id="mod-db-fournisseurs"><div class="flex justify-between items-center mb-6"><div><h1 class="text-2xl font-bold text-white">Annuaire des Fournisseurs</h1></div><button class="btn btn-primary" onclick="openModalFournisseur()"><i class="fas fa-plus"></i> Nouveau Fournisseur</button></div><div class="panel"><div class="panel-body p-0"><table class="data-table"><thead><tr><th>Nom</th><th>Spécialité</th><th>Contact</th><th>Actions</th></tr></thead><tbody id="dbFournisseursBody"></tbody></table></div></div></div>
+    <div class="module-view" id="mod-db-soustraitants"><div class="flex justify-between items-center mb-6"><div><h1 class="text-2xl font-bold text-white">Annuaire des Sous-traitants (ST)</h1></div><button class="btn btn-primary" onclick="openModalDBST()"><i class="fas fa-plus"></i> Enregistrer un ST</button></div><div class="panel"><div class="panel-body p-0"><table class="data-table"><thead><tr><th>Raison Sociale</th><th>Spécialité</th><th>Contact</th><th>Actions</th></tr></thead><tbody id="dbSoustraitantsBody"></tbody></table></div></div></div>
+  </div>
+</div>
+
+<!-- FORMULAIRES MODALS -->
+<div class="modal-overlay" id="modalAchat"><div class="modal-box wide"><div class="modal-header"><h3 class="text-white font-bold">Nouvel Engagement d'Achat</h3><button class="btn border border-gray-600 p-1" onclick="closeModal('modalAchat')"><i class="fas fa-times text-white"></i></button></div><div class="modal-body"><div class="form-row"><div class="form-group"><label class="form-label">Fournisseur</label><select class="form-select" id="achat-fournisseur"></select></div><div class="form-group"><label class="form-label">Date</label><input class="form-input" type="date" id="achat-date"></div></div><div class="form-group"><label class="form-label">Affectation (Où est livrée la marchandise ?)</label><select class="form-select" id="achat-chantier" onchange="loadBpuOptionsForAchat()"></select></div><div class="mb-3"><button class="btn btn-sm btn-secondary" onclick="addArticleLine()">+ Insérer une ligne de commande</button></div><div class="bg-gray-700 p-4 rounded-lg"><div class="grid grid-cols-6 gap-2 text-[10px] font-bold text-gray-400 uppercase mb-2"><span>Article du catalogue</span><span>Imputation Code BPU (Chantier)</span><span>Qté</span><span>Unité</span><span>PU HT</span><span>Total HT</span></div><div id="articles-container" class="flex flex-col gap-2"></div></div><div class="flex justify-end gap-6 mt-4 text-right"><div><div class="text-[11px] text-gray-400">TOTAL HT</div><div class="text-white font-bold" id="achat-total-ht">0 MAD</div></div><div><div class="text-[11px] text-gray-400">TVA (20%)</div><div class="text-white font-bold" id="achat-total-tva">0 MAD</div></div><div><div class="text-[11px] text-gray-400">TOTAL TTC</div><div class="text-success font-bold text-lg" id="achat-total-ttc">0 MAD</div></div></div><div class="text-right mt-6"><button class="btn btn-primary px-6" onclick="saveAchat_V2()">Valider la Commande</button></div></div></div></div>
+<div class="modal-overlay" id="modalDetailAchat"><div class="modal-box wide"><div class="modal-header"><h3 class="text-white font-bold">Suivi Commande : <span id="detail-ref"></span></h3><button class="btn border border-gray-600 p-1" onclick="closeModal('modalDetailAchat')"><i class="fas fa-times text-white"></i></button></div><div class="modal-body"><div class="flex gap-4 p-4 bg-gray-700 rounded-lg mb-4"><div><label class="text-[10px] uppercase font-bold text-gray-400">Fournisseur</label><div class="text-white font-bold" id="detail-fourn"></div></div><div><label class="text-[10px] uppercase font-bold text-gray-400">Affectation / Livraison</label><div class="text-white font-bold" id="detail-chantier-name"></div></div><div><label class="text-[10px] uppercase font-bold text-gray-400">Statut Financier</label><div class="mt-1" id="detail-statut-badge"></div></div></div><table class="data-table mb-4"><thead><tr><th>Désignation Article</th><th>Code Imputation BPU</th><th>Quantité Commandée</th><th>Prix Unitaire HT</th><th>Sous-Total HT</th></tr></thead><tbody id="detail-lignes-body"></tbody></table><div class="text-right text-lg font-bold text-success mb-4">Montant TTC : <span id="detail-ttc">0</span> MAD</div><div id="workflow-actions" class="p-4 bg-gray-900 rounded-lg border border-gray-700 flex justify-between items-center"></div></div></div></div>
+<div class="modal-overlay" id="modalCaisse"><div class="modal-box"><div class="modal-header"><h3 class="text-white font-bold" id="modalCaisseTitle">Nouvelle Caisse Terrain</h3><button class="btn border border-gray-600 p-1" onclick="closeModal('modalCaisse')"><i class="fas fa-times text-white"></i></button></div><div class="modal-body"><input type="hidden" id="caisse-id"><div class="form-group"><label class="form-label">Affectation (Projet / Siège)</label><select class="form-select" id="caisse-nom"></select></div><div class="form-group"><label class="form-label">Responsable Caisse (Magasinier / Conducteur)</label><input type="text" class="form-input" id="caisse-resp"></div><div class="form-row"><div class="form-group"><label class="form-label">Solde Initial (MAD)</label><input type="number" class="form-input" id="caisse-solde"></div><div class="form-group"><label class="form-label">Seuil d'Alerte Minimum</label><input type="number" class="form-input" id="caisse-seuil"></div></div><button class="btn btn-primary w-full mt-2" onclick="saveCaisse()">Enregistrer la Caisse</button></div></div></div>
+<div class="modal-overlay" id="modalMouvementCaisse"><div class="modal-box"><div class="modal-header"><h3 class="text-white font-bold" id="modalMvmtTitle">Opération de Caisse</h3><button class="btn border border-gray-600 p-1" onclick="closeModal('modalMouvementCaisse')"><i class="fas fa-times text-white"></i></button></div><div class="modal-body"><input type="hidden" id="mvmt-caisse-id"><input type="hidden" id="mvmt-type"><div class="form-group" id="caisse-bpu-container" style="display:none;"><label class="form-label">Imputation au budget BPU (Optionnel)</label><select class="form-select" id="mvmt-bpu"></select></div><div class="form-group"><label class="form-label">Montant de la Pièce (TTC)</label><input type="number" class="form-input" id="mvmt-montant" placeholder="0.00"></div><div class="form-group"><label class="form-label">Motif / Libellé de la Dépense</label><input type="text" class="form-input" id="mvmt-motif"></div><button class="btn btn-primary w-full" id="btn-save-mvmt" onclick="saveMouvementCaisse()">Valider le Mouvement</button></div></div></div>
+<div class="modal-overlay" id="modalCreatePaie"><div class="modal-box"><div class="modal-header"><h3 class="text-white font-bold">Émettre une Demande de Paie</h3><button class="btn border border-gray-600 p-1" onclick="closeModal('modalCreatePaie')"><i class="fas fa-times text-white"></i></button></div><div class="modal-body"><div class="form-group"><label class="form-label">Libellé / Période</label><input type="text" class="form-input" id="create-paie-libelle" placeholder="Ex: Pointage Semaine 24"></div><div class="form-row"><div class="form-group"><label class="form-label">Affectation (Chantier / Siège)</label><select class="form-select" id="create-paie-chantier" onchange="updatePaieBpuOptions()"></select></div><div class="form-group"><label class="form-label">Imputation BPU (Main d'oeuvre)</label><select class="form-select" id="create-paie-bpu"><option value="">-- Sans Imputation --</option></select></div></div><div class="form-group"><label class="form-label">Montant Global Sollicité (NET)</label><input type="number" class="form-input" id="create-paie-montant"></div><button class="btn btn-primary w-full" onclick="saveCreatePaie()">Soumettre pour Validation Financière</button></div></div></div>
+<div class="modal-overlay" id="modalPayPaie"><div class="modal-box"><div class="modal-header"><h3 class="text-white font-bold">Règlement de la Paie</h3><button class="btn border border-gray-600 p-1" onclick="closeModal('modalPayPaie')"><i class="fas fa-times"></i></button></div><div class="modal-body"><input type="hidden" id="pay-paie-id">
+    <div class="form-group"><label class="form-label">Source de Financement</label><select class="form-select" id="pay-paie-mode" onchange="togglePaieCaisse()"><option value="virement">Virement depuis le Compte Central</option><option value="caisse">Espèces (Décompte sur Caisse Terrain)</option></select></div>
+    <div class="form-group" id="div-paie-caisse" style="display:none;"><label class="form-label">Sélectionner la Caisse Source</label><select class="form-select" id="pay-paie-caisse"></select></div><button class="btn btn-success w-full mt-4" onclick="savePayPaie()">Valider le Paiement Réel</button></div></div></div>
+<div class="modal-overlay" id="modalNewContratST"><div class="modal-box"><div class="modal-header"><h3 class="text-white font-bold">Nouveau Contrat ST</h3><button class="btn border border-gray-600 p-1" onclick="closeModal('modalNewContratST')"><i class="fas fa-times text-white"></i></button></div><div class="modal-body"><div class="form-row"><div class="form-group"><label class="form-label">Entreprise Sous-traitante</label><select class="form-select" id="st-contrat-nom"></select></div><div class="form-group"><label class="form-label">Affectation Projet</label><select class="form-select" id="st-contrat-chantier" onchange="updateStBpuOptions()"></select></div></div><div class="form-group"><label class="form-label">Imputation du contrat dans le BPU du marché</label><select class="form-select" id="st-contrat-bpu"><option value="">-- Sans Imputation (Général) --</option></select></div><div class="form-row"><div class="form-group"><label class="form-label">Montant Global du Contrat HT</label><input type="number" class="form-input" id="st-contrat-montant"></div><div class="form-group"><label class="form-label">Statut Administratif</label><select class="form-select" id="st-contrat-docs"><option value="ok">Dossier Complet (Paiement autorisé)</option><option value="manquant">Dossier Incomplet (Paiement bloqué)</option></select></div></div><button class="btn btn-primary w-full mt-2" onclick="saveContratST()">Créer le Contrat ST</button></div></div></div>
+<div class="modal-overlay" id="modalManageST"><div class="modal-box wide"><div class="modal-header"><h3 class="text-white font-bold">Gestion Financière ST : <span id="manage-st-nom"></span></h3><button class="btn border border-gray-600 p-1" onclick="closeModal('modalManageST')"><i class="fas fa-times text-white"></i></button></div><div class="modal-body"><input type="hidden" id="manage-st-id"><div class="grid grid-cols-4 gap-4 bg-gray-700 p-4 rounded-lg mb-4"><div><div class="kpi-label">Montant Contrat HT</div><div class="text-white font-bold text-base" id="manage-st-contrat"></div></div><div><div class="kpi-label">Facturé/Réalisé HT</div><div class="text-info font-bold text-base" id="manage-st-realise"></div></div><div><div class="kpi-label">Avance Demandée HT</div><div class="text-warning font-bold text-base" id="manage-st-avance"></div></div><div><div class="kpi-label">Reste à Régler TTC</div><div class="text-danger font-bold text-base" id="manage-st-reste"></div></div></div><div class="p-4 bg-gray-900 border border-gray-700 rounded-xl mb-4"><h4 class="text-white text-xs font-bold uppercase mb-2">1. Déclaration Terrain (Chef de Projet)</h4><div class="flex gap-2 mb-2"><input type="number" id="st-input-realise" class="form-input" placeholder="Ajouter des travaux réalisés HT"><button class="btn btn-info text-xs font-bold whitespace-nowrap" onclick="ajouterTravauxST()">Valider Travaux HT</button></div><div class="flex gap-2"><input type="number" id="st-input-avance" class="form-input" placeholder="Montant avance demandée HT"><button class="btn btn-warning text-xs text-slate-900 font-bold whitespace-nowrap" onclick="demanderAvanceST()">Demander Avance HT</button></div></div><div class="p-4 bg-gray-900 border border-gray-700 rounded-xl mb-4"><h4 class="text-white text-xs font-bold uppercase mb-2">2. Paiement et Retenue (Service Finance)</h4><div class="flex gap-2 mb-2"><input type="number" id="st-input-retenue" class="form-input" placeholder="Fixer la Retenue de Garantie (HT)"><button class="btn btn-secondary text-xs font-bold whitespace-nowrap" onclick="ajusterRetenueST()">Mettre à jour la RG</button></div><div class="flex gap-2"><input type="number" id="st-input-paiement" class="form-input" placeholder="Montant du virement/chèque (TTC)"><button class="btn btn-success text-xs font-bold whitespace-nowrap" onclick="payerST()">Comptabiliser Paiement TTC</button></div></div></div></div></div>
+<div class="modal-overlay" id="modalInitChantier"><div class="modal-box"><div class="modal-header"><h3 class="text-white font-bold">Démarrer le Suivi d'un Nouveau Chantier</h3><button class="btn border border-gray-600 p-1" onclick="closeModal('modalInitChantier')"><i class="fas fa-times text-white"></i></button></div><div class="modal-body"><p class="text-xs text-gray-400 mb-4">Associez un projet de la base de données pour y injecter le BPU et suivre le budget.</p><div class="form-group"><label class="form-label">Sélectionner l'Affectation</label><select class="form-select" id="init-ch-select"></select></div><button class="btn btn-primary w-full" onclick="saveInitChantier()">Activer le Chantier</button></div></div></div>
+<div class="modal-overlay" id="modalDecompte"><div class="modal-box wide"><div class="modal-header"><h3 class="text-white font-bold">Créer un Attachement (Situation de Travaux)</h3><button class="btn border border-gray-600 p-1" onclick="closeModal('modalDecompte')"><i class="fas fa-times text-white"></i></button></div><div class="modal-body"><p class="text-xs text-gray-400 mb-4">Saisissez les avancements cumulés validés sur le terrain. Le stock travaux lié sera automatiquement déduit.</p><div style="max-height:45vh; overflow-y:auto;"><table class="data-table"><thead><tr><th>Code BPU / Désignation de la tâche</th><th>U</th><th>Prévu Marché</th><th>Ancien Cumul</th><th>Nouveau Cumul Validé</th></tr></thead><tbody id="decompteFormBody"></tbody></table></div><button class="btn btn-warning text-slate-900 w-full mt-4 font-bold" onclick="saveDecompte()">Soumettre l'Attachement (TTC pour encaissement futur)</button></div></div></div>
+<div class="modal-overlay" id="modalStock"><div class="modal-box"><div class="modal-header"><h3 class="text-white font-bold">Opération de Stock (Libre)</h3><button class="btn border border-gray-600 p-1" onclick="closeModal('modalStock')"><i class="fas fa-times text-white"></i></button></div><div class="modal-body"><div class="form-group"><label class="form-label">Lieu (Dépôt / Chantier)</label><select class="form-select" id="stock-chantier"></select></div><div class="form-group"><label class="form-label">Article du Catalogue</label><select class="form-select" id="stock-article"></select></div><div class="form-row"><div class="form-group"><label class="form-label">Mouvement</label><select class="form-select" id="stock-type"><option value="in">Entrée / Retour (+)</option><option value="out">Sortie / Casse (-)</option></select></div><div class="form-group"><label class="form-label">Quantité</label><input type="number" class="form-input" id="stock-qte" value="1"></div></div><button class="btn btn-primary w-full mt-2" onclick="saveMouvementStock()">Enregistrer le Mouvement</button></div></div></div>
+<div class="modal-overlay" id="modalDBChantier"><div class="modal-box"><div class="modal-header"><h3 class="text-white font-bold" id="modalDBChantierTitle">Nouvelle Affectation</h3><button class="btn border border-gray-600 p-1" onclick="closeModal('modalDBChantier')"><i class="fas fa-times text-white"></i></button></div><div class="modal-body"><input type="hidden" id="db-ch-id"><div class="form-group"><label class="form-label">Nom (Projet / Siège / Magasin)</label><input type="text" class="form-input" id="db-ch-nom"></div><div class="form-group"><label class="form-label">Localisation / Ville</label><input type="text" class="form-input" id="db-ch-adresse"></div><button class="btn btn-primary w-full" onclick="saveDBChantier()">Sauvegarder</button></div></div></div>
+<div class="modal-overlay" id="modalArticle"><div class="modal-box"><div class="modal-header"><h3 class="text-white font-bold" id="modalArticleTitle">Fiche Article Catalogue</h3><button class="btn border border-gray-600 p-1" onclick="closeModal('modalArticle')"><i class="fas fa-times text-white"></i></button></div><div class="modal-body"><input type="hidden" id="art-id"><div class="form-row"><div class="form-group"><label class="form-label">Code Interne</label><input type="text" class="form-input" id="art-code"></div><div class="form-group"><label class="form-label">Désignation Matériau</label><input type="text" class="form-input" id="art-nom"></div></div><div class="form-row"><div class="form-group"><label class="form-label">Unité d'Achat</label><input type="text" class="form-input" id="art-unite"></div><div class="form-group"><label class="form-label">Prix de Référence HT</label><input type="number" class="form-input" id="art-prix"></div></div><button class="btn btn-primary w-full mt-2" onclick="saveArticle()">Ajouter au Catalogue</button></div></div></div>
+<div class="modal-overlay" id="modalFournisseur"><div class="modal-box"><div class="modal-header"><h3 class="text-white font-bold" id="modalFournTitle">Fiche Fournisseur</h3><button class="btn border border-gray-600 p-1" onclick="closeModal('modalFournisseur')"><i class="fas fa-times text-white"></i></button></div><div class="modal-body"><input type="hidden" id="fourn-id"><div class="form-group"><label class="form-label">Raison Sociale</label><input type="text" class="form-input" id="fourn-nom"></div><div class="form-group"><label class="form-label">Spécialité Principale</label><input type="text" class="form-input" id="fourn-spec"></div><div class="form-group"><label class="form-label">Coordonnées / Téléphone</label><input type="text" class="form-input" id="fourn-contact"></div><button class="btn btn-primary w-full" onclick="saveFournisseur()">Enregistrer le Fournisseur</button></div></div></div>
+<div class="modal-overlay" id="modalNewSTDB"><div class="modal-box"><div class="modal-header"><h3 class="text-white font-bold">Annuaire : Nouveau ST</h3><button class="btn border border-gray-600 p-1" onclick="closeModal('modalNewSTDB')"><i class="fas fa-times text-white"></i></button></div><div class="modal-body"><input type="hidden" id="inp-db-st-id"><div class="form-group"><label class="form-label">Nom Entreprise</label><input type="text" class="form-input" id="inp-db-st-nom"></div><div class="form-group"><label class="form-label">Spécialité (Ex: Plomberie)</label><input type="text" class="form-input" id="inp-db-st-spec"></div><div class="form-group"><label class="form-label">Contact / ICE</label><input type="text" class="form-input" id="inp-db-st-contact"></div><button class="btn btn-primary w-full mt-2" onclick="saveDBSoustraitant()">Enregistrer dans l'Annuaire</button></div></div></div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+// ==========================================
+// CONFIGURATION SERVEUR ET VARIABLES
+// ==========================================
+const WORKER_URL = 'https://erp-backend.analibtpachat.workers.dev';
+const TAUX_TVA = 0.20;
+
+let appData = { lastUpdated: 0, caisses: [], mouvementsCaisse: [], articles: [], stock: [], fournisseurs: [], achats: [], paies: [], dbSoustraitants: [], contratsST: [], chantiers: [], dbChantiers: [] };
+
+// ==========================================
+// GESTION DES RÔLES
+// ==========================================
+function updateRoleContext() {
+    const roleEl = document.getElementById('user-role');
+    if(!roleEl) return;
+    const role = roleEl.value;
+    document.getElementById('avatar-initials').innerText = role.toUpperCase().substring(0, 2);
+    
+    document.getElementById('btn-new-paie').style.display = (role==='rh' || role==='admin') ? 'inline-flex' : 'none';
+    document.getElementById('btn-new-st').style.display = (role==='pm' || role==='admin') ? 'inline-flex' : 'none';
+    document.getElementById('btn-init-chantier').style.display = (role==='admin') ? 'inline-flex' : 'none';
+    document.getElementById('btn-new-achat').style.display = (role==='achat' || role==='admin') ? 'inline-flex' : 'none';
+    document.getElementById('btn-mvt-stock').style.display = (role==='pm' || role==='admin') ? 'inline-flex' : 'none';
+    
+    renderPaie(); renderContratsST(); renderAchats();
+}
+
+// ==========================================
+// SYNCHRONISATION (ANTI-BUG CLOUDFLARE)
+// ==========================================
+async function loadData() {
+    try {
+        const local = localStorage.getItem('buildflow_sync_v12');
+        if (local) { try { appData = { ...appData, ...JSON.parse(local) }; } catch(e){} }
+        
+        if(appData.chantiers) { appData.chantiers.forEach(c => { if(!c.lots) c.lots = []; if(!c.decomptes) c.decomptes = []; }); } else { appData.chantiers = []; }
+        if(appData.stock) { appData.stock.forEach(s => { if(s.qteDispo === undefined) s.qteDispo = s.qte || 0; if(s.qteTravaux === undefined) s.qteTravaux = 0; if(!s.chantier) s.chantier = "Global"; }); } else { appData.stock = []; }
+        if(!appData.contratsST) appData.contratsST = [];
+        appData.contratsST.forEach(c => { if(c.travauxRealises === undefined) c.travauxRealises = c.facture || 0; if(c.avanceDemandee === undefined) c.avanceDemandee = 0; if(c.retenue === undefined) c.retenue = 0; });
+        if(!appData.achats) appData.achats = []; if(!appData.paies) appData.paies = []; if(!appData.caisses) appData.caisses = []; if(!appData.mouvementsCaisse) appData.mouvementsCaisse = [];
+
+        initUI(); updateRoleContext();
+
+        const res = await fetch(WORKER_URL + '?t=' + Date.now());
+        if(res.ok) {
+            const server = await res.json();
+            if (server.lastUpdated && server.lastUpdated > (appData.lastUpdated || 0)) {
+                appData = { ...appData, ...server };
+                localStorage.setItem('buildflow_sync_v12', JSON.stringify(appData));
+                initUI(); updateRoleContext();
+            }
+        }
+    } catch(e) { console.warn("Serveur inaccessible:", e); }
+    finally {
+        document.getElementById('loader-overlay').style.opacity = '0';
+        setTimeout(() => document.getElementById('loader-overlay').style.display = 'none', 500);
+        setInterval(syncServeur, 15000);
+    }
+}
+
+async function syncServeur() {
+    try {
+        const res = await fetch(WORKER_URL + '?t=' + Date.now());
+        if(res.ok) {
+            const server = await res.json();
+            if (server.lastUpdated && server.lastUpdated > (appData.lastUpdated || 0)) {
+                appData = { ...appData, ...server };
+                localStorage.setItem('buildflow_sync_v12', JSON.stringify(appData));
+                initUI();
+                
+                const syncIndicator = document.getElementById('sync-status');
+                if(syncIndicator) {
+                    syncIndicator.innerHTML = '<i class="fas fa-sync text-[10px] mr-1"></i> Actualisé';
+                    syncIndicator.classList.add('syncing');
+                    setTimeout(() => {
+                        syncIndicator.innerHTML = '<i class="fas fa-check text-[10px] mr-1"></i> À jour';
+                        syncIndicator.classList.remove('syncing');
+                    }, 2000);
+                }
+            }
+        }
+    } catch(e) {}
+}
+
+function saveData() {
+    appData.lastUpdated = Date.now();
+    localStorage.setItem('buildflow_sync_v12', JSON.stringify(appData));
+    fetch(WORKER_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(appData) }).catch(e => console.warn("Erreur d'envoi."));
+}
+
+// ==========================================
+// OUTILS
+// ==========================================
+function fmtMAD(n) { return Math.round(n || 0).toLocaleString('fr-FR') + ' MAD'; }
+function fmtMADShort(n) { return Math.round(n || 0).toLocaleString('fr-FR'); }
+function showToast(msg, type='info') { const c = document.getElementById('toastContainer'); const t = document.createElement('div'); t.className = 'toast'; t.innerHTML = `<span>${msg}</span>`; c.appendChild(t); setTimeout(() => t.remove(), 3500); }
+function switchModule(m) { document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active')); const el = document.querySelector(`.nav-item[data-module="${m}"]`); if(el) el.classList.add('active'); document.querySelectorAll('.module-view').forEach(v => v.classList.remove('active')); document.getElementById(`mod-${m}`).classList.add('active'); if(m === 'chantiers') closeChantierDetail(); }
+function openModal(id) { document.getElementById(id).classList.add('show'); }
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+function getChantiersOptionsToutes() { if(appData.dbChantiers.length === 0) return `<option value="">-- Créez une affectation --</option>`; return appData.dbChantiers.map(c => `<option value="${c.nom}">${c.nom}</option>`).join(''); }
+function getChantiersOptionsActifs() { if(appData.chantiers.length === 0) return `<option value="">-- Aucun chantier actif --</option>`; return appData.chantiers.map(c => `<option value="${c.nom}">${c.nom}</option>`).join(''); }
+function getBpuOptionsForChantier(chantierNom) {
+    let opts = '<option value="">-- Sans Imputation BPU --</option>';
+    const c = appData.chantiers.find(x => x.nom === chantierNom);
+    if(c && c.lots) { c.lots.forEach(l => { (l.items||[]).forEach(i => { opts += `<option value="${i.ref}">[${i.ref}] ${i.des.substring(0,35)}</option>`; }); }); }
+    return opts;
+}
+
+function initUI() { 
+    try {
+        const now = new Date(); const mFilter = document.getElementById('dash-month-filter');
+        if(mFilter && !mFilter.value) mFilter.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2, '0')}`;
+        
+        updateFiltersUI();
+        renderDBChantiers(); renderDBArticles(); renderDBFournisseurs(); renderDBSoustraitants();
+        renderChantiersList(); renderAchats(); renderStock(); renderCaisses(); renderPaie(); renderContratsST(); 
+        renderDashboard(); 
+    } catch(err) { console.error("Erreur initUI:", err); }
+}
+function updateFiltersUI() {
+    const optsStock = `<option value="all">Stock Global (Toutes Affectations)</option><option value="Siège">Magasin Siège / Stock Général</option>` + getChantiersOptionsToutes();
+    const optsChantiers = `<option value="all">Toutes Affectations / Magasins</option><option value="Siège">Siège</option>` + getChantiersOptionsToutes();
+    
+    const filterStock = document.getElementById('filter-stock-chantier');
+    if(filterStock) { const currentVal = filterStock.value; filterStock.innerHTML = optsStock; filterStock.value = currentVal || 'all'; }
+    
+    ['filter-caisse-chantier', 'filter-st-chantier', 'filter-paie-chantier'].forEach(id => {
+        const el = document.getElementById(id);
+        if(el) { const val = el.value; el.innerHTML = optsChantiers; el.value = val || 'all'; }
+    });
+}
+
+// ==========================================
+// DASHBOARD (AFFICHAGES TTC, CALCULS MARGE HT)
+// ==========================================
+let chartCA_instance = null; let chartRep_instance = null;
+function renderDashboard() {
+    const filterVal = document.getElementById('dash-month-filter').value;
+    let filterYear = null, filterMonth = null;
+    if(filterVal) { [filterYear, filterMonth] = filterVal.split('-'); }
+    document.getElementById('dash-current-month-text').innerText = filterVal ? `Mois : ${filterMonth}/${filterYear}` : 'Toutes les périodes';
+
+    const matchDate = (dateStr) => { if(!filterVal) return true; if(!dateStr) return false; const d = new Date(dateStr); return d.getFullYear() == filterYear && (d.getMonth() + 1) == filterMonth; };
+
+    let dettesFournisseursTTC = 0; let fPayeTTC = 0; let dettesFournisseursHT = 0; let fPayeHT = 0;
+    appData.achats.forEach(a => { 
+        if(matchDate(a.date)) { 
+            const ht = a.totalHT || (a.ttc / 1.2);
+            if(a.status === 'Payé') { fPayeTTC += a.ttc; fPayeHT += ht; }
+            else if (a.status !== 'Annulé') { dettesFournisseursTTC += a.ttc; dettesFournisseursHT += ht; }
+        } 
+    });
+
+    let dettesST_TTC = 0; let stPayeTTC = 0; let dettesST_HT = 0; let stPayeHT = 0;
+    appData.contratsST.forEach(c => { 
+        const htRealise = c.travauxRealises || 0; const htRetenue = c.retenue || 0;
+        const ttcPaye = c.paye || 0; const htPaye = ttcPaye / 1.2;
+
+        stPayeTTC += ttcPaye; stPayeHT += htPaye;
+        dettesST_HT += (htRealise - htPaye - htRetenue);
+        dettesST_TTC += ((htRealise - htRetenue) * 1.2) - ttcPaye;
+    });
+
+    let paieImpaye = 0; let paiePayee = 0;
+    appData.paies.forEach(p => { if(matchDate(p.date)) { if(p.status === 'Payé') paiePayee += p.montant; else paieImpaye += p.montant; } });
+
+    let decaisseCaisseTerrainTTC = 0; let decaisseCaisseHorsPaieHT = 0; let decaisseCaisseHorsPaieTTC = 0;
+    appData.mouvementsCaisse.forEach(m => { 
+        if(m.type === 'out' && matchDate(m.date)) { 
+            decaisseCaisseTerrainTTC += m.montant; 
+            if(!m.isAuto && m.motif && !m.motif.startsWith("Règlement Paie")) { 
+                decaisseCaisseHorsPaieTTC += m.montant; decaisseCaisseHorsPaieHT += (m.montant / 1.2); 
+            }
+        } 
+    });
+
+    let encaissementsGlobauxHT = 0; let attachementsGlobauxHT = 0; 
+    let encaissementsGlobauxTTC = 0; let attachementsGlobauxTTC = 0;
+    
+    appData.chantiers.forEach(c => {
+        (c.decomptes || []).forEach(d => { 
+            if(matchDate(d.date)) {
+                if(d.status === 'Décompte') {
+                    encaissementsGlobauxTTC += d.montant; 
+                    encaissementsGlobauxHT += (d.montant / 1.2);
+                } else {
+                    attachementsGlobauxTTC += d.montant;
+                    attachementsGlobauxHT += (d.montant / 1.2);
+                }
+            }
+        });
+    });
+
+    let valeurStocksDispoHT = 0; let valeurStocksTravauxHT = 0;
+    appData.stock.forEach(s => { const art = appData.articles.find(x => x.id === s.articleId); if(art) { valeurStocksDispoHT += ((s.qteDispo||0) * art.refPrice); valeurStocksTravauxHT += ((s.qteTravaux||0) * art.refPrice); } });
+    let valeurStocksTotaleHT = valeurStocksDispoHT + valeurStocksTravauxHT;
+
+    let decaissementsGlobauxHT = fPayeHT + stPayeHT + paiePayee + decaisseCaisseHorsPaieHT;
+    let decaissementsGlobauxTTC = fPayeTTC + stPayeTTC + paiePayee + decaisseCaisseHorsPaieTTC;
+    let dettesEnAttenteHT = dettesFournisseursHT + dettesST_HT + paieImpaye;
+    
+    let margeNetteCalculHT = encaissementsGlobauxHT - decaissementsGlobauxHT + valeurStocksTotaleHT;
+    let margeEnCoursHT = attachementsGlobauxHT - dettesEnAttenteHT;
+
+    document.getElementById('dash-fourn-impaye').innerText = fmtMADShort(dettesFournisseursTTC); document.getElementById('dash-fourn-paye').innerText = fmtMADShort(fPayeTTC);
+    document.getElementById('dash-st-impaye').innerText = fmtMADShort(dettesST_TTC); document.getElementById('dash-st-paye').innerText = fmtMADShort(stPayeTTC);
+    document.getElementById('dash-paie-impaye').innerText = fmtMADShort(paieImpaye); document.getElementById('dash-paie-paye').innerText = fmtMADShort(paiePayee);
+    document.getElementById('dash-caisse-decaisse').innerText = fmtMADShort(decaisseCaisseTerrainTTC);
+    
+    document.getElementById('dash-ca').innerText = fmtMADShort(encaissementsGlobauxTTC);
+    document.getElementById('dash-attachements').innerText = fmtMADShort(attachementsGlobauxTTC);
+    document.getElementById('dash-decaissements').innerText = fmtMADShort(decaissementsGlobauxTTC);
+    
+    document.getElementById('dash-stock-total').innerText = fmtMADShort(valeurStocksTotaleHT) + ' MAD'; document.getElementById('dash-stock-dispo').innerText = fmtMADShort(valeurStocksDispoHT); document.getElementById('dash-stock-travaux').innerText = fmtMADShort(valeurStocksTravauxHT);
+    
+    const margeEl = document.getElementById('dash-marge'); margeEl.innerText = fmtMAD(margeNetteCalculHT); margeEl.className = margeNetteCalculHT < 0 ? "text-3xl font-black text-danger font-['Space_Grotesk']" : "text-3xl font-black text-success font-['Space_Grotesk']";
+    const margeCoursEl = document.getElementById('dash-marge-cours'); margeCoursEl.innerText = fmtMAD(margeEnCoursHT); margeCoursEl.className = margeEnCoursHT < 0 ? "text-xl font-bold text-danger font-['Space_Grotesk']" : "text-xl font-bold text-success font-['Space_Grotesk']";
+
+    initCharts();
+}
+function initCharts() {
+    Chart.defaults.color = '#8891A5'; Chart.defaults.font.family = 'DM Sans'; const ctxCA = document.getElementById('chartCA');
+    if(ctxCA) {
+        if(chartCA_instance) chartCA_instance.destroy();
+        chartCA_instance = new Chart(ctxCA.getContext('2d'), { type: 'bar', data: { labels: ['Il y a 2 mois', 'Mois préc.', 'Ce mois'], datasets: [ { label: 'Encaissements TTC', data: [0, 0, 0], backgroundColor: '#1DB954', borderRadius: 4 }, { label: 'Décaissements TTC', data: [0, 0, 0], backgroundColor: '#BA1C21', borderRadius: 4 } ] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels:{color:'#fff'} } }, scales: { y: { grid: { color: '#2E333D' } }, x: { grid: { display: false } } } } });
+    }
+    const ctxRep = document.getElementById('chartRepartition');
+    if(ctxRep) {
+        if(chartRep_instance) chartRep_instance.destroy();
+        const labels = appData.chantiers.map(c => c.nom); const data = appData.chantiers.map(c => (c.lots||[]).reduce((s,l)=>s+(l.items||[]).reduce((ss,i)=>ss+(i.qte*i.pu),0),0) || 1);
+        chartRep_instance = new Chart(ctxRep.getContext('2d'), { type: 'doughnut', data: { labels: labels.length ? labels : ['Aucun'], datasets: [{ data: data.length ? data : [1], backgroundColor: ['#BA1C21', '#1DB954', '#F5A623', '#3B82F6'], borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '75%', plugins: { legend: { position: 'bottom', labels:{color:'#fff'} } } } });
+    }
+}
+
+// ==========================================
+// ACHATS
+// ==========================================
+function openAchatModal() {
+    if(appData.fournisseurs.length === 0) return showToast("Ajoutez d'abord un Fournisseur !", "warning");
+    if(appData.articles.length === 0) return showToast("Ajoutez d'abord un Article !", "warning");
+    document.getElementById('articles-container').innerHTML = ''; document.getElementById('achat-date').value = new Date().toISOString().split('T')[0];
+    document.getElementById('achat-chantier').innerHTML = `<option value="Siège">-- Magasin Siège / Stock Général --</option>` + getChantiersOptionsToutes();
+    document.getElementById('achat-fournisseur').innerHTML = appData.fournisseurs.map(f => `<option value="${f.nom}">${f.nom}</option>`).join('');
+    updateTotals(); openModal('modalAchat');
+}
+function loadBpuOptionsForAchat() { document.getElementById('articles-container').innerHTML = ''; updateTotals(); }
+function addArticleLine() {
+    const id = Date.now(); const chName = document.getElementById('achat-chantier').value;
+    const bpuOptions = getBpuOptionsForChantier(chName);
+    const artOpts = appData.articles.map(a => `<option value="${a.code}" data-price="${a.refPrice}" data-unite="${a.unite}" data-name="${a.name}">${a.code} - ${a.name}</option>`).join('');
+    document.getElementById('articles-container').insertAdjacentHTML('beforeend', `<div class="article-row flex gap-2 items-center" id="line-${id}"><select class="form-select text-xs flex-1" onchange="updateLinePrice(${id}, this)"><option value="">-- Article Catalogue --</option>${artOpts}</select><select class="form-select text-xs flex-1 bpu-imputation-select">${bpuOptions}</select><input type="number" class="form-input text-xs w-16 qte-input" placeholder="Qté" value="1" onchange="updateTotals()"><input type="text" class="form-input text-xs w-16 bg-gray-600 text-gray-400" placeholder="U" readonly><input type="number" class="form-input text-xs w-20 pu-input" placeholder="Prix U" onchange="updateTotals()"><input type="text" class="form-input text-xs w-24 bg-gray-600 text-white font-bold total-line-input" placeholder="Total HT" readonly><button class="text-danger ml-1 p-2" onclick="document.getElementById('line-${id}').remove(); updateTotals();"><i class="fas fa-times"></i></button></div>`);
+}
+function updateLinePrice(id, sel) { if(!sel.value) return; const row = document.getElementById(`line-${id}`); const p = sel.options[sel.selectedIndex].getAttribute('data-price'); const u = sel.options[sel.selectedIndex].getAttribute('data-unite'); const inps = row.querySelectorAll('input'); inps[1].value = u; inps[2].value = p; updateTotals(); }
+function updateTotals() { let tHT = 0; document.querySelectorAll('.article-row').forEach(l => { const i = l.querySelectorAll('input'); const q = parseFloat(i[0].value) || 0; const p = parseFloat(i[2].value) || 0; const total = q * p; i[3].value = Math.round(total); tHT += total; }); document.getElementById('achat-total-ht').innerText = fmtMADShort(tHT) + ' MAD'; document.getElementById('achat-total-tva').innerText = fmtMADShort(tHT * 0.2) + ' MAD'; document.getElementById('achat-total-ttc').innerText = fmtMADShort(tHT * 1.2) + ' MAD'; }
+function saveAchat_V2() {
+    let items = [], t = 0; const chantier = document.getElementById('achat-chantier').value || "Siège";
+    document.querySelectorAll('.article-row').forEach(l => {
+        const s = l.querySelector('select'); const imputation = l.querySelector('.bpu-imputation-select').value; const inps = l.querySelectorAll('input');
+        if(s.value) { const q = parseFloat(inps[0].value) || 0; const p = parseFloat(inps[2].value) || 0; const tot = q * p; items.push({ code: s.value, name: s.options[s.selectedIndex].getAttribute('data-name'), unite: inps[1].value, qte: q, pu: p, total: tot, bpuImputation: imputation }); t += tot; }
+    });
+    if(items.length > 0) { appData.achats.push({ id: Date.now(), ref: "CMD-" + Date.now().toString().slice(-4), date: document.getElementById('achat-date').value, fournisseur: document.getElementById('achat-fournisseur').value, chantier: chantier, items: items, status: "En cours", totalHT: t, ttc: t * (1 + TAUX_TVA) }); saveData(); closeModal('modalAchat'); renderAchats(); renderDashboard(); showToast("Commande créée", "success"); } else { showToast("Veuillez insérer un article", "warning"); }
+}
+function renderAchats() { 
+    const role = document.getElementById('user-role') ? document.getElementById('user-role').value : 'admin'; 
+    const filterEl = document.getElementById('filter-achat-status');
+    const fStatus = filterEl ? filterEl.value : 'all'; 
+    
+    const tbody = document.getElementById('achatsTableBody');
+    if(!tbody) return;
+
+    tbody.innerHTML = appData.achats.filter(a => fStatus === 'all' || a.status === fStatus).slice().reverse().map(a => { 
+        const b = a.status === 'En cours' ? 'badge-warning' : a.status === 'Livré' ? 'badge-info' : a.status === 'Facturé' ? 'badge-danger' : 'badge-success'; 
+        let actionBtn = '';
+        if (a.status === 'En cours' && (role === 'achat' || role === 'admin' || role === 'pm')) { actionBtn = `<button class="btn btn-sm btn-info px-2 py-1 text-[10px] mr-2" onclick="validateBL(${a.id})" title="Recevoir le stock"><i class="fas fa-box-open"></i> Marquer Livré</button>`; }
+        let delBtn = (role === 'achat' || role === 'admin') ? `<button class="btn-ghost text-danger" onclick="deleteAchat(${a.id})"><i class="fas fa-trash"></i></button>` : '';
+        return `<tr><td class="cursor-pointer" onclick="viewAchatDetails(${a.id})">${new Date(a.date).toLocaleDateString('fr-FR')}</td><td class="cursor-pointer font-bold text-white" onclick="viewAchatDetails(${a.id})">${a.ref}</td><td class="cursor-pointer" onclick="viewAchatDetails(${a.id})">${a.fournisseur}</td><td class="cursor-pointer" onclick="viewAchatDetails(${a.id})">${a.chantier||'-'}</td><td class="cursor-pointer font-bold" onclick="viewAchatDetails(${a.id})">${fmtMAD(a.ttc)}</td><td class="cursor-pointer" onclick="viewAchatDetails(${a.id})"><span class="badge ${b}">${a.status}</span></td><td><div class="flex items-center">${actionBtn}${delBtn}</div></td></tr>`; 
+    }).join(''); 
+}
+function viewAchatDetails(id) { 
+    const role = document.getElementById('user-role') ? document.getElementById('user-role').value : 'admin'; const cmd = appData.achats.find(a => a.id === id); 
+    document.getElementById('detail-ref').innerText = cmd.ref; document.getElementById('detail-fourn').innerText = cmd.fournisseur; document.getElementById('detail-chantier-name').innerText = cmd.chantier || '-';
+    const b = cmd.status === 'En cours' ? 'badge-warning' : cmd.status === 'Livré' ? 'badge-info' : cmd.status === 'Facturé' ? 'badge-danger' : 'badge-success'; 
+    document.getElementById('detail-statut-badge').innerHTML = `<span class="badge ${b}">${cmd.status}</span>`; 
+    document.getElementById('detail-lignes-body').innerHTML = cmd.items.map(i => `<tr><td class="font-bold text-white">${i.name}</td><td>${i.bpuImputation ? `<span class="text-xs text-sky-400 font-bold bg-sky-900/30 px-2 py-1 rounded">${i.bpuImputation}</span>` : '-'}</td><td>${i.qte} ${i.unite}</td><td>${fmtMAD(i.pu)}</td><td class="font-bold">${fmtMAD(i.total)}</td></tr>`).join(''); 
+    document.getElementById('detail-ttc').innerText = fmtMADShort(cmd.ttc); 
+    
+    const wfa = document.getElementById('workflow-actions'); 
+    if(cmd.status === 'En cours') {
+        if(role === 'pm' || role === 'admin' || role === 'achat') { wfa.innerHTML = `<span class="text-gray-400 text-xs">Marquer livré et ajouter le stock au chantier : <span class="font-bold text-white">${cmd.chantier}</span></span><button class="btn btn-info" onclick="validateBL(${cmd.id})">Générer BL (Recevoir Stock)</button>`; } else { wfa.innerHTML = `<span class="text-warning text-xs font-bold"><i class="fas fa-lock"></i> Seul le terrain ou les achats peuvent valider le BL.</span>`; }
+    }
+    else if(cmd.status === 'Livré') {
+        if(role === 'finance' || role === 'achat' || role === 'admin') { wfa.innerHTML = `<span class="text-gray-400 text-xs">Le fournisseur a déposé la facture ?</span><button class="btn btn-danger" onclick="validateFacture(${cmd.id})">Comptabiliser Dette (Facture Reçue)</button>`; } else { wfa.innerHTML = `<span class="text-warning text-xs font-bold"><i class="fas fa-lock"></i> Attente saisie facture par la Finance.</span>`; }
+    }
+    else if(cmd.status === 'Facturé') {
+        if(role === 'finance' || role === 'admin') { wfa.innerHTML = `<span class="text-danger font-bold text-sm">Facture de ${fmtMADShort(cmd.ttc)} MAD à régler</span><button class="btn btn-success" onclick="validatePayment(${cmd.id})">Enregistrer le Règlement</button>`; } else { wfa.innerHTML = `<span class="text-warning text-xs font-bold"><i class="fas fa-lock"></i> Le service Finance doit régler cette facture.</span>`; }
+    }
+    else wfa.innerHTML = `<span class="text-success font-bold w-full text-center block"><i class="fas fa-check-circle"></i> Achat réglé et clôturé.</span>`; 
+    openModal('modalDetailAchat'); 
+}
+function validateBL(id) { 
+    const cmd = appData.achats.find(a => a.id === id); cmd.status = "Livré"; 
+    cmd.items.forEach(item => { 
+        const art = appData.articles.find(a => a.code === item.code);
+        if(art) {
+            let stockArt = appData.stock.find(s => s.articleId === art.id && s.chantier === cmd.chantier); 
+            if(stockArt) stockArt.qteDispo = (stockArt.qteDispo||0) + item.qte; else appData.stock.push({ articleId: art.id, chantier: cmd.chantier, qteDispo: item.qte, qteTravaux: 0 });
+        }
+    }); 
+    saveData(); closeModal('modalDetailAchat'); renderAchats(); renderStock(); renderDashboard(); showToast(`BL Validé (Stock ajouté à ${cmd.chantier})`, "success"); 
+}
+function validateFacture(id) { appData.achats.find(a => a.id === id).status = "Facturé"; saveData(); closeModal('modalDetailAchat'); renderAchats(); renderDashboard(); showToast("Dette comptabilisée", "warning"); }
+function validatePayment(id) { appData.achats.find(a => a.id === id).status = "Payé"; saveData(); closeModal('modalDetailAchat'); renderAchats(); renderDashboard(); showToast("Règlement validé", "success"); }
+function deleteAchat(id) { if(confirm("Supprimer cette commande ?")) { appData.achats = appData.achats.filter(a => a.id !== id); saveData(); renderAchats(); renderDashboard(); showToast("Supprimée.", "success"); } }
+
+// ==========================================
+// PAIE
+// ==========================================
+function renderPaie() {
+    const role = document.getElementById('user-role') ? document.getElementById('user-role').value : 'admin';
+    const filterCh = document.getElementById('filter-paie-chantier') ? document.getElementById('filter-paie-chantier').value : 'all';
+    
+    document.getElementById('paieTableBody').innerHTML = appData.paies.filter(p => filterCh === 'all' || p.chantier === filterCh).slice().reverse().map(p => {
+        let actionBtn = '';
+        if(p.status === 'En attente') {
+            if(role === 'finance' || role === 'admin') { actionBtn = `<button class="btn btn-sm btn-success px-3 py-1 text-xs" onclick="openModalPayPaie(${p.id})"><i class="fas fa-check"></i> Régler</button>`; } 
+            else { actionBtn = `<span class="text-xs text-warning italic font-semibold"><i class="fas fa-clock"></i> En attente Finance</span>`; }
+        } else { actionBtn = `<span class="text-xs text-success font-bold"><i class="fas fa-check-double"></i> Payé (${p.mode})</span>`; }
+        let deleteBtn = `<button class="btn-ghost text-danger ml-2" onclick="deletePaie(${p.id})"><i class="fas fa-trash"></i></button>`;
+        let statusBadge = p.status === 'Payé' ? '<span class="badge badge-success">Validé & Décompté</span>' : '<span class="badge badge-warning">En attente paiement</span>';
+        const impText = p.chantier ? `${p.chantier} ${p.bpuImputation ? '<br><span class="text-[10px] text-sky-400">BPU: '+p.bpuImputation+'</span>' : ''}` : '-';
+        return `<tr><td>${new Date(p.date).toLocaleDateString('fr-FR')}</td><td class="font-semibold text-white">${p.libelle}</td><td>${impText}</td><td class="font-bold text-white">${fmtMAD(p.montant)}</td><td>${statusBadge}</td><td><div class="flex items-center">${actionBtn} ${deleteBtn}</div></td></tr>`;
+    }).join('');
+}
+function updatePaieBpuOptions() { document.getElementById('create-paie-bpu').innerHTML = getBpuOptionsForChantier(document.getElementById('create-paie-chantier').value); }
+function openModalCreatePaie() { 
+    document.getElementById('create-paie-chantier').innerHTML = `<option value="Siège">-- Imputation Globale (Siège) --</option>` + getChantiersOptionsActifs();
+    document.getElementById('create-paie-libelle').value=''; document.getElementById('create-paie-montant').value=''; updatePaieBpuOptions(); openModal('modalCreatePaie'); 
+}
+function saveCreatePaie() {
+    const l = document.getElementById('create-paie-libelle').value; const m = parseFloat(document.getElementById('create-paie-montant').value);
+    const ch = document.getElementById('create-paie-chantier').value; const bpu = document.getElementById('create-paie-bpu').value;
+    if(!l || !m || m<=0) return showToast("Informations invalides", "danger");
+    appData.paies.push({ id: Date.now(), date: new Date().toISOString(), libelle: l, chantier: ch, bpuImputation: bpu, montant: m, status: 'En attente', caisseId: null });
+    saveData(); renderPaie(); renderDashboard(); closeModal('modalCreatePaie'); showToast("Paie créée", "warning");
+}
+function togglePaieCaisse() { document.getElementById('div-paie-caisse').style.display = document.getElementById('pay-paie-mode').value === 'caisse' ? 'block' : 'none'; }
+function openModalPayPaie(id) { document.getElementById('pay-paie-id').value = id; document.getElementById('pay-paie-mode').value = 'virement'; togglePaieCaisse(); document.getElementById('pay-paie-caisse').innerHTML = appData.caisses.map(c => `<option value="${c.id}">${c.chantier} (Solde: ${fmtMADShort(c.solde)})</option>`).join(''); openModal('modalPayPaie'); }
+function savePayPaie() {
+    const pId = parseInt(document.getElementById('pay-paie-id').value); const mode = document.getElementById('pay-paie-mode').value; const paie = appData.paies.find(x => x.id === pId);
+    if(mode === 'caisse') {
+        const cId = parseInt(document.getElementById('pay-paie-caisse').value); const caisse = appData.caisses.find(x => x.id === cId);
+        if(!caisse) return showToast("Sélectionnez une caisse", "danger"); if(paie.montant > caisse.solde) return showToast("Fonds insuffisants", "danger");
+        caisse.solde -= paie.montant; appData.mouvementsCaisse.push({ id: Date.now(), caisseId: cId, date: new Date().toISOString(), type: 'out', montant: paie.montant, motif: "Règlement Paie: " + paie.libelle, isAuto: true }); paie.caisseId = cId;
+    } else { paie.caisseId = null; }
+    paie.status = 'Payé'; paie.mode = mode; saveData(); renderPaie(); renderCaisses(); renderDashboard(); closeModal('modalPayPaie'); showToast("Paie réglée", "success");
+}
+function deletePaie(id) {
+    if(!confirm("Supprimer cette paie ? Les fonds de caisse éventuels seront recrédités.")) return;
+    const idx = appData.paies.findIndex(p => p.id === id); if(idx === -1) return; const p = appData.paies[idx];
+    if(p.status === 'Payé' && p.mode === 'caisse' && p.caisseId) { const c = appData.caisses.find(cx => cx.id === p.caisseId); if(c) c.solde += p.montant; appData.mouvementsCaisse = appData.mouvementsCaisse.filter(m => !(m.isAuto && m.caisseId === p.caisseId && m.montant === p.montant)); }
+    appData.paies.splice(idx, 1); saveData(); renderPaie(); renderCaisses(); renderDashboard();
+}
+
+// ==========================================
+// CAISSE
+// ==========================================
+function renderCaisses() { 
+    const filterCh = document.getElementById('filter-caisse-chantier') ? document.getElementById('filter-caisse-chantier').value : 'all';
+    document.getElementById('caisseTableBody').innerHTML = appData.caisses.filter(c => filterCh === 'all' || c.chantier === filterCh).map(c => { const isLow = c.solde <= c.seuil; return `<tr><td style="font-weight:600; color:var(--white);">${c.chantier}</td><td>${c.responsable}</td><td style="font-weight:700; color:${isLow ? 'var(--danger)' : 'var(--success)'};">${fmtMAD(c.solde)}</td><td>${fmtMAD(c.seuil)}</td><td><span class="badge ${isLow ? 'badge-danger' : 'badge-success'}">${isLow ? 'Alerte' : 'Normal'}</span></td><td><div class="action-group"><button class="btn btn-sm btn-success" onclick="openMouvementCaisse(${c.id}, 'in')" title="Alimenter"><i class="fas fa-plus"></i></button><button class="btn btn-sm btn-danger" onclick="openMouvementCaisse(${c.id}, 'out')" title="Dépense"><i class="fas fa-minus"></i></button></div></td><td><div class="action-group"><button class="btn-ghost" onclick="editCaisse(${c.id})"><i class="fas fa-edit"></i></button><button class="btn-ghost text-danger" onclick="deleteCaisse(${c.id})"><i class="fas fa-trash"></i></button></div></td></tr>`; }).join(''); 
+    document.getElementById('caisseMouvementsBody').innerHTML = appData.mouvementsCaisse.filter(m => { const c = appData.caisses.find(cx => cx.id === m.caisseId); return filterCh === 'all' || (c && c.chantier === filterCh); }).slice().reverse().map(m => { 
+        const caisse = appData.caisses.find(c => c.id === m.caisseId); const cName = caisse ? caisse.chantier : "Caisse supprimée"; const isOut = m.type === 'out'; 
+        return `<tr><td>${new Date(m.date).toLocaleDateString('fr-FR')}</td><td class="font-bold text-white">${cName}</td><td><span class="badge ${isOut ? 'badge-danger' : 'badge-success'}">${isOut ? 'Sortie' : 'Entrée'}</span></td><td>${m.bpuImputation ? `<span class="text-xs text-sky-400 font-bold bg-sky-900/30 px-2 py-1 rounded">${m.bpuImputation}</span>` : '-'}</td><td>${m.motif || ''}</td><td style="font-weight:700; color:${isOut ? 'var(--danger)' : 'var(--success)'};">${isOut ? '-' : '+'}${fmtMAD(m.montant)}</td><td><button class="btn-ghost text-danger" onclick="deleteMouvementCaisse(${m.id})"><i class="fas fa-trash"></i></button></td></tr>`; 
+    }).join(''); 
+}
+function openModalCaisse() { document.getElementById('caisse-id').value=''; document.getElementById('caisse-nom').innerHTML= `<option value="Siège">-- Affectation Libre / Siège --</option>` + getChantiersOptionsToutes(); document.getElementById('caisse-resp').value=''; document.getElementById('caisse-solde').value='0'; document.getElementById('caisse-seuil').value='2000'; document.getElementById('modalCaisseTitle').innerText="Nouvelle Caisse"; openModal('modalCaisse'); }
+function editCaisse(id) { const c=appData.caisses.find(x=>x.id==id); document.getElementById('caisse-id').value=c.id; document.getElementById('caisse-nom').innerHTML= `<option value="Siège">-- Affectation Libre / Siège --</option>` + getChantiersOptionsToutes(); document.getElementById('caisse-nom').value=c.chantier; document.getElementById('caisse-resp').value=c.responsable; document.getElementById('caisse-solde').value=c.solde; document.getElementById('caisse-seuil').value=c.seuil; document.getElementById('modalCaisseTitle').innerText="Modifier Caisse"; openModal('modalCaisse'); }
+function saveCaisse() { const id=document.getElementById('caisse-id').value; const d={chantier:document.getElementById('caisse-nom').value, responsable:document.getElementById('caisse-resp').value, solde:parseFloat(document.getElementById('caisse-solde').value), seuil:parseFloat(document.getElementById('caisse-seuil').value)}; if(!d.chantier) return showToast("Nom requis.", "danger"); if(id) { const i=appData.caisses.findIndex(c=>c.id==parseInt(id)); if(i>-1) appData.caisses[i]={...appData.caisses[i], ...d}; } else { appData.caisses.push({id:Date.now(), ...d}); } document.getElementById('caisse-id').value=''; saveData(); updateFiltersUI(); renderCaisses(); renderDashboard(); closeModal('modalCaisse'); }
+function deleteCaisse(id) { if(confirm("Supprimer ?")) { appData.caisses=appData.caisses.filter(x=>x.id!=id); saveData(); updateFiltersUI(); renderCaisses(); renderDashboard(); } }
+function openMouvementCaisse(cId, type) { 
+    document.getElementById('mvmt-caisse-id').value=cId; document.getElementById('mvmt-type').value=type; 
+    document.getElementById('mvmt-montant').value=''; document.getElementById('mvmt-motif').value=''; 
+    document.getElementById('modalMvmtTitle').innerText=type==='in'?'Alimenter (+)':'Dépense (-)'; 
+    const caisse = appData.caisses.find(x => x.id == cId);
+    if(type === 'out' && caisse) {
+        document.getElementById('caisse-bpu-container').style.display = 'block';
+        document.getElementById('mvmt-bpu').innerHTML = getBpuOptionsForChantier(caisse.chantier);
+    } else { document.getElementById('caisse-bpu-container').style.display = 'none'; }
+    openModal('modalMouvementCaisse'); 
+}
+function saveMouvementCaisse() { 
+    const cId=parseInt(document.getElementById('mvmt-caisse-id').value); const t=document.getElementById('mvmt-type').value; const m=parseFloat(document.getElementById('mvmt-montant').value); const mo=document.getElementById('mvmt-motif').value; 
+    const bpu = document.getElementById('caisse-bpu-container').style.display === 'block' ? document.getElementById('mvmt-bpu').value : '';
+    if(!m||!mo) return showToast("Montant et motif requis.", "danger"); const c=appData.caisses.find(x=>x.id==cId); if(t==='out' && m>c.solde) return showToast("Fonds insuffisants", "danger"); 
+    appData.mouvementsCaisse.push({id:Date.now(), caisseId:cId, date:new Date().toISOString(), type:t, montant:m, motif:mo, bpuImputation: bpu}); if(t==='in') c.solde+=m; else c.solde-=m; saveData(); renderCaisses(); renderDashboard(); closeModal('modalMouvementCaisse'); 
+}
+function deleteMouvementCaisse(id) {
+    if(!confirm("Annuler ce mouvement et recalculer la caisse ?")) return;
+    const index = appData.mouvementsCaisse.findIndex(m => m.id === id); if(index === -1) return;
+    const mvt = appData.mouvementsCaisse[index]; const caisse = appData.caisses.find(c => c.id === mvt.caisseId);
+    if(caisse) { if(mvt.type === 'out') caisse.solde += mvt.montant; if(mvt.type === 'in') caisse.solde -= mvt.montant; }
+    appData.mouvementsCaisse.splice(index, 1); saveData(); renderCaisses(); renderDashboard(); showToast("Annulé", "success");
+}
+
+// ==========================================
+// STOCK & TRAVAUX
+// ==========================================
+function renderStock() {
+    const filterCh = document.getElementById('filter-stock-chantier').value;
+    let html = '';
+    
+    appData.articles.forEach(art => {
+        let rows = [];
+        if(filterCh === 'all') {
+            const tracks = appData.stock.filter(s => s.articleId === art.id && ((s.qteDispo||0) > 0 || (s.qteTravaux||0) > 0));
+            if(tracks.length === 0) { rows.push({ chantier: '-', dispo: 0, travaux: 0 }); } 
+            else { tracks.forEach(t => rows.push({ chantier: t.chantier, dispo: t.qteDispo||0, travaux: t.qteTravaux||0 })); }
+        } else {
+            const s = appData.stock.find(x => x.articleId === art.id && x.chantier === filterCh) || { qteDispo: 0, qteTravaux: 0 };
+            rows.push({ chantier: filterCh, dispo: s.qteDispo||0, travaux: s.qteTravaux||0 });
+        }
+        
+        rows.forEach(r => {
+            const v = ((r.dispo||0) + (r.travaux||0)) * art.refPrice;
+            let actionBtn = r.dispo > 0 ? `<button class="btn btn-sm btn-warning px-2 py-0.5 text-[11px]" onclick="transferToTravaux(${art.id}, '${r.chantier}')"><i class="fas fa-tools"></i> Affecter aux Travaux</button>` : '-';
+            html += `<tr><td class="font-bold text-white">${art.code}</td><td>${art.name}</td><td>${r.chantier}</td><td class="text-success font-bold">${r.dispo}</td><td class="text-warning font-bold">${r.travaux}</td><td>${art.unite}</td><td class="font-bold">${fmtMAD(v)}</td><td>${actionBtn}</td></tr>`;
+        });
+    });
+    document.getElementById('stockTableBody').innerHTML = html;
+}
+function transferToTravaux(artId, chantierName) {
+    const qty = parseFloat(prompt("Quantité de matériaux à poser / incorporer aux travaux de ce chantier :"));
+    if(!qty || qty <= 0) return;
+    const s = appData.stock.find(x => x.articleId === artId && x.chantier === chantierName);
+    if(!s || (s.qteDispo||0) < qty) return showToast("Quantité disponible insuffisante dans le dépôt !", "danger");
+    s.qteDispo -= qty; s.qteTravaux = (s.qteTravaux||0) + qty; saveData(); renderStock(); renderDashboard(); showToast("Matériaux affectés aux travaux", "success");
+}
+function openModalStock() { 
+    if(appData.articles.length === 0) return showToast("Veuillez d'abord créer un Article dans le catalogue.", "warning");
+    const options = `<option value="Siège">Magasin Siège / Stock Général</option>` + getChantiersOptionsToutes();
+    document.getElementById('stock-chantier').innerHTML = options; 
+    document.getElementById('stock-article').innerHTML = appData.articles.map(a => `<option value="${a.id}">${a.code} - ${a.name}</option>`).join(''); 
+    document.getElementById('stock-qte').value = '1'; 
+    openModal('modalStock'); 
+}
+function saveMouvementStock() { 
+    const ch = document.getElementById('stock-chantier').value; const aId = parseInt(document.getElementById('stock-article').value); const t = document.getElementById('stock-type').value; const q = parseFloat(document.getElementById('stock-qte').value); 
+    if(!ch) return showToast("Sélectionnez une affectation", "danger"); if(!q || q <= 0) return showToast("Quantité invalide.", "danger"); 
+    let s = appData.stock.find(x => x.articleId === aId && x.chantier === ch); 
+    if(!s) { s = { articleId: aId, chantier: ch, qteDispo: 0, qteTravaux: 0 }; appData.stock.push(s); } 
+    if(t === 'out' && q > (s.qteDispo||0)) return showToast("Stock dispo insuffisant !", "danger"); 
+    if(t === 'in') s.qteDispo = (s.qteDispo||0) + q; else s.qteDispo = (s.qteDispo||0) - q; 
+    saveData(); renderStock(); renderDashboard(); closeModal('modalStock'); showToast(`Stock mis à jour pour ${ch}`, "success"); 
+}
+
+// ==========================================
+// WORKFLOW SOUS-TRAITANCE & AVANCES
+// ==========================================
+function updateStBpuOptions() { document.getElementById('st-contrat-bpu').innerHTML = getBpuOptionsForChantier(document.getElementById('st-contrat-chantier').value); }
+function renderContratsST() {
+    const role = document.getElementById('user-role') ? document.getElementById('user-role').value : 'admin';
+    const filterCh = document.getElementById('filter-st-chantier') ? document.getElementById('filter-st-chantier').value : 'all';
+    
+    document.getElementById('stContratsBody').innerHTML = appData.contratsST.filter(c => filterCh === 'all' || c.chantier === filterCh).map(c => {
+        const st = appData.dbSoustraitants.find(x => x.id == c.stId) || { nom: 'Inconnu', spec: '-' };
+        
+        const htRealise = c.travauxRealises || 0; const htRetenue = c.retenue || 0;
+        const ttcPaye = c.paye || 0; 
+        const resteTTC = ((htRealise - htRetenue) * 1.2) - ttcPaye;
+        
+        let workflowCell = `<button class="btn btn-sm btn-secondary px-2 py-1 text-xs" onclick="openManageST(${c.id})"><i class="fas fa-eye"></i> Ouvrir Dossier</button>`;
+        const delBtn = (role === 'admin') ? `<button class="btn-ghost text-danger ml-2" onclick="deleteContratST(${c.id})"><i class="fas fa-trash"></i></button>` : '';
+        const bpuLabel = c.bpuImputation ? `<span class="text-[10px] bg-sky-900/40 text-sky-300 px-2 py-1 rounded border border-sky-800">${c.bpuImputation}</span>` : '-';
+
+        return `<tr><td class="font-bold text-white">${st.nom}</td><td>${st.spec}</td><td>${c.chantier}</td><td>${bpuLabel}</td><td class="font-bold">${fmtMADShort(c.contrat)}</td><td class="text-info font-bold">${fmtMADShort(htRealise)}</td><td class="text-warning font-bold">${fmtMADShort(c.avanceDemandee)}</td><td class="text-success font-bold">${fmtMADShort(ttcPaye)}</td><td class="text-gray-400 font-bold">${fmtMADShort(htRetenue)}</td><td class="text-danger font-bold">${fmtMADShort(resteTTC)}</td><td><span class="badge ${c.docs==='ok'?'badge-success':'badge-danger'}">${c.docs==='ok'?'Dossier Complet':'Pièces manquantes'}</span></td><td><div class="flex items-center">${workflowCell} ${delBtn}</div></td></tr>`;
+    }).join('');
+}
+function openModalContratST() { 
+    if(appData.dbSoustraitants.length===0) return showToast("Ajoutez un ST d'abord!", "warning"); 
+    document.getElementById('st-contrat-nom').innerHTML=appData.dbSoustraitants.map(s=>`<option value="${s.id}">${s.nom}</option>`).join(''); document.getElementById('st-contrat-chantier').innerHTML=getChantiersOptionsActifs(); updateStBpuOptions(); openModal('modalNewContratST'); 
+}
+function saveContratST() { const id=parseInt(document.getElementById('st-contrat-nom').value); const ch=document.getElementById('st-contrat-chantier').value; const bpu=document.getElementById('st-contrat-bpu').value; const m=parseFloat(document.getElementById('st-contrat-montant').value); const d=document.getElementById('st-contrat-docs').value; if(!ch||!m) return; appData.contratsST.push({ id:Date.now(), stId:id, chantier:ch, bpuImputation:bpu, contrat:m, travauxRealises:0, avanceDemandee:0, paye:0, retenue:0, docs:d, statut:d==='ok'?'actif':'bloque' }); saveData(); updateFiltersUI(); renderContratsST(); closeModal('modalNewContratST'); }
+function openManageST(id) { 
+    const c=appData.contratsST.find(x=>x.id===id); const st=appData.dbSoustraitants.find(x=>x.id==c.stId); 
+    const htRealise = c.travauxRealises || 0; const htRetenue = c.retenue || 0;
+    const ttcPaye = c.paye || 0; const resteTTC = ((htRealise - htRetenue) * 1.2) - ttcPaye;
+    
+    document.getElementById('manage-st-id').value=c.id; document.getElementById('manage-st-nom').innerText=st.nom; document.getElementById('manage-st-contrat').innerText=fmtMADShort(c.contrat) + " MAD"; document.getElementById('manage-st-realise').innerText=fmtMADShort(htRealise) + " MAD"; document.getElementById('manage-st-avance').innerText=fmtMADShort(c.avanceDemandee) + " MAD"; document.getElementById('manage-st-reste').innerText=fmtMADShort(resteTTC) + " MAD"; document.getElementById('manage-st-docs').value=c.docs; 
+    document.getElementById('st-input-realise').value=''; document.getElementById('st-input-avance').value=''; document.getElementById('st-input-retenue').value=htRetenue; document.getElementById('st-input-paiement').value='';
+    openModal('modalManageST'); 
+}
+function ajouterTravauxST() { const c=appData.contratsST.find(x=>x.id===parseInt(document.getElementById('manage-st-id').value)); const m=parseFloat(document.getElementById('st-input-realise').value); if(m>0) { c.travauxRealises=(c.travauxRealises||0)+m; saveData(); openManageST(c.id); renderContratsST(); renderDashboard(); showToast("Travaux ajoutés", "success"); } }
+function demanderAvanceST() { const c=appData.contratsST.find(x=>x.id===parseInt(document.getElementById('manage-st-id').value)); const m=parseFloat(document.getElementById('st-input-avance').value); if(m>0) { c.avanceDemandee=(c.avanceDemandee||0)+m; saveData(); openManageST(c.id); renderContratsST(); renderDashboard(); showToast("Demande envoyée", "warning"); } }
+function ajusterRetenueST() { const role = document.getElementById('user-role').value; if(role === 'pm') return showToast("Réservé à la Finance.", "danger"); const c=appData.contratsST.find(x=>x.id===parseInt(document.getElementById('manage-st-id').value)); const m=parseFloat(document.getElementById('st-input-retenue').value); if(m>=0) { c.retenue=m; saveData(); openManageST(c.id); renderContratsST(); showToast("RG Mise à jour", "success"); } }
+function payerST() { const role = document.getElementById('user-role').value; if(role === 'pm') return showToast("Accès refusé. Réservé à la Finance.", "danger"); const c=appData.contratsST.find(x=>x.id===parseInt(document.getElementById('manage-st-id').value)); const m=parseFloat(document.getElementById('st-input-paiement').value); if(m>0) { if(c.statut === 'bloque') return showToast("Dossier incomplet, paiement bloqué.", "danger"); c.paye=(c.paye||0)+m; if(c.avanceDemandee >= (m/1.2)) c.avanceDemandee -= (m/1.2); else c.avanceDemandee = 0; saveData(); openManageST(c.id); renderContratsST(); renderDashboard(); showToast("Paiement validé", "success"); } }
+function updateDocsST() { const id=parseInt(document.getElementById('manage-st-id').value); const d=document.getElementById('manage-st-docs').value; const c=appData.contratsST.find(x=>x.id===id); c.docs=d; c.statut=d==='ok'?'actif':'bloque'; saveData(); renderContratsST(); closeModal('modalManageST'); }
+function deleteContratST(id) { if(!confirm("Voulez-vous supprimer ce contrat sous-traitant ?")) return; appData.contratsST = appData.contratsST.filter(x => x.id !== id); saveData(); renderContratsST(); renderDashboard(); }
+
+// ==========================================
+// CHANTIERS (BPU & DECOMPTES) - AVEC DÉDUCTION DE STOCK AUTO
+// ==========================================
+function renderChantiersList() {
+    let globalBudget = 0; let totalFacture = 0; let avancements = [];
+    document.getElementById('chantierGrid').innerHTML = appData.chantiers.map(c => {
+        let cB = 0; let cP = 0; let cR = 0;
+        (c.lots||[]).forEach(lot => (lot.items||[]).forEach(item => { const b = item.qte * item.pu; cB += b; cP += b; cR += (item.realise * item.pu); }));
+        globalBudget += cB; (c.decomptes||[]).forEach(d => { if(d.status==='Décompte') totalFacture += (d.montant/1.2); }); const av = cP > 0 ? Math.round((cR / cP) * 100) : 0; avancements.push(av);
+        return `<div class="chantier-card" onclick="openChantierDetail(${c.id})"><h3 style="color:var(--white); font-weight:700;">${c.nom}</h3><p style="font-size:12px; color:var(--gray-400); margin-bottom:15px;"><i class="fas fa-map-marker-alt"></i> ${c.adresse}</p><div style="display:flex; justify-content:space-between; margin-bottom:5px; font-size:12px; font-weight:600;"><span style="color:var(--gray-400);">Budget Marché: ${fmtMADShort(cB)}</span><span style="color:var(--success);">${av}%</span></div><div class="progress-bar"><div class="progress-fill" style="width:${av}%; background:var(--success);"></div></div></div>`;
+    }).join('');
+    document.getElementById('kpi-ch-budget').innerText = fmtMADShort(globalBudget) + ' MAD'; document.getElementById('kpi-ch-facture').innerText = fmtMADShort(totalFacture) + ' MAD'; document.getElementById('kpi-ch-avancement').innerText = avancements.length > 0 ? Math.round(avancements.reduce((a,b)=>a+b,0)/avancements.length) + '%' : '0%';
+}
+function openModalInitChantier() { const dispo = appData.dbChantiers.filter(dbC => !appData.chantiers.find(c => c.nom === dbC.nom)); if(dispo.length === 0) return showToast("Aucune affectation disponible.", "warning"); document.getElementById('init-ch-select').innerHTML = dispo.map(c => `<option value="${c.id}">${c.nom}</option>`).join(''); openModal('modalInitChantier'); }
+function saveInitChantier() { const dbId = parseInt(document.getElementById('init-ch-select').value); const dbC = appData.dbChantiers.find(x => x.id === dbId); if(!dbC) return; appData.chantiers.push({ id: Date.now(), nom: dbC.nom, adresse: dbC.adresse, lots: [], decomptes: [] }); saveData(); renderChantiersList(); updateFiltersUI(); closeModal('modalInitChantier'); showToast("Chantier activé", "success"); }
+function openChantierDetail(id) { appData.currentChantierId = id; const c = appData.chantiers.find(x => x.id === id); document.getElementById('view-chantiers-list').style.display = 'none'; document.getElementById('view-chantier-detail').style.display = 'block'; document.getElementById('cd-nom').innerText = c.nom; document.getElementById('cd-adresse').innerText = c.adresse; let cP = 0; let cR = 0; (c.lots||[]).forEach(lot => (lot.items||[]).forEach(i => { cP += (i.qte*i.pu); cR += (i.realise*i.pu); })); document.getElementById('cd-avancement').innerText = cP > 0 ? Math.round((cR / cP) * 100) + '%' : '0%'; renderBPU(c); renderDecomptes(c); }
+function closeChantierDetail() { appData.currentChantierId = null; document.getElementById('view-chantiers-list').style.display = 'block'; document.getElementById('view-chantier-detail').style.display = 'none'; renderChantiersList(); renderDashboard(); }
+function switchCTab(t, el) { document.querySelectorAll('.c-tab').forEach(x=>x.classList.remove('active')); el.classList.add('active'); document.querySelectorAll('.c-tab-content').forEach(x=>x.classList.remove('active')); document.getElementById('ctab-'+t).classList.add('active'); }
+function deleteChantierActif() { if(!confirm("Supprimer ce chantier complet et son BPU ?")) return; appData.chantiers = appData.chantiers.filter(x => x.id !== appData.currentChantierId); saveData(); closeChantierDetail(); updateFiltersUI(); showToast("Chantier supprimé", "success"); }
+
+function renderBPU(c) {
+    let h = ''; let tHT = 0; let rH = '';
+    if(!c.lots || c.lots.length === 0) { h = '<tr><td colspan="9" style="text-align:center;">Aucun poste. Importez le fichier BPU Excel.</td></tr>'; } 
+    else {
+        c.lots.forEach(l => {
+            h += `<tr class="row-lot-header"><td colspan="9">${l.nom}</td></tr>`; let lotBudgetTotal = 0;
+            l.items.forEach(i => {
+                const prevuTotal = i.qte * i.pu; lotBudgetTotal += prevuTotal;
+                let depenseEngageeHT = 0;
+                appData.achats.forEach(a => { if(a.chantier === c.nom && (a.status === 'Livré' || a.status === 'Facturé' || a.status === 'Payé')) { (a.items||[]).forEach(it => { if(it.bpuImputation === i.ref) depenseEngageeHT += (it.total || 0); }); } });
+                appData.paies.forEach(p => { if(p.chantier === c.nom && p.bpuImputation === i.ref) depenseEngageeHT += p.montant; });
+                appData.mouvementsCaisse.forEach(m => { const cx = appData.caisses.find(ca=>ca.id===m.caisseId); if(cx && cx.chantier === c.nom && m.type === 'out' && m.bpuImputation === i.ref) depenseEngageeHT += (m.montant / 1.2); });
+                appData.contratsST.forEach(st => { if(st.chantier === c.nom && st.bpuImputation === i.ref) depenseEngageeHT += (st.travauxRealises||0); });
+
+                let alerteCell = '<span class="text-success font-bold"><i class="fas fa-check-circle"></i> Conforme</span>';
+                if(depenseEngageeHT > prevuTotal) { alerteCell = `<span class="text-danger font-black animate-pulse"><i class="fas fa-exclamation-triangle"></i> DÉPASSÉ (+${Math.round(depenseEngageeHT - prevuTotal)})</span>`; }
+                h += `<tr><td class="font-bold text-white">${i.ref}</td><td class="font-medium text-gray-300">${i.des}</td><td>${i.unite}</td><td>${i.qte}</td><td>${fmtMADShort(i.pu)}</td><td class="font-bold text-white">${fmtMADShort(prevuTotal)}</td><td class="text-success font-bold">${i.realise}</td><td class="text-warning font-bold">${fmtMADShort(depenseEngageeHT)}</td><td>${alerteCell}</td></tr>`;
+            });
+            tHT += lotBudgetTotal; rH += `<tr><td colspan="5" class="text-right text-gray-400 font-bold">TOTAL ${l.nom}</td><td class="font-bold text-white">${fmtMADShort(lotBudgetTotal)}</td><td colspan="3"></td></tr>`;
+        });
+        h += `<tr class="border-t-4 border-gray-600"><td colspan="9"></td></tr><tr class="bg-gray-800 text-center font-bold text-white"><td colspan="9" class="p-3">SYNTHÈSE FINANCIÈRE DE MARCHÉ</td></tr>${rH}<tr><td colspan="5" class="text-right text-lg text-success font-bold">MONTANT TOTAL DU MARCHÉ HT :</td><td class="text-lg font-black text-success">${fmtMADShort(tHT)} MAD</td><td colspan="3"></td></tr>`;
+    }
+    document.getElementById('bpuTableBody').innerHTML = h;
+}
+function handleBPUImport(e) {
+    const f = e.target.files[0]; if(!f) return; showToast("Lecture Excel...", "info"); const r = new FileReader();
+    r.onload = function(ev) {
+        try { const d = new Uint8Array(ev.target.result); const wb = XLSX.read(d, {type: 'array'}); const js = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header: 1}); let nL = []; let cL = null;
+            js.forEach(row => { const c1=row[0]; const c2=row[1]; const c3=row[2]; const q=parseFloat(row[3]); const p=parseFloat(row[4]); let txt = String(c1||'')+" "+String(c2||''); if(txt.toUpperCase().includes("TOTAL")||txt.toUpperCase().includes("TVA")||txt.toUpperCase().includes("RECAP")) return; if(c2 && typeof c2==='string') { if(isNaN(q)||isNaN(p)) { if(cL && cL.items.length>0) nL.push(cL); cL={nom:c2.toUpperCase(), items:[]}; } else if(cL) { cL.items.push({ref:c1||'', des:c2, unite:c3||'U', qte:q, pu:p, realise:0}); } } });
+            if(cL && cL.items.length>0) nL.push(cL); if(nL.length>0) { const c=appData.chantiers.find(x=>x.id===appData.currentChantierId); c.lots=nL; c.decomptes=[]; saveData(); renderBPU(c); renderChantiersList(); showToast("Marché importé !", "success"); } else { showToast("Format non reconnu.", "danger"); }
+        } catch(err) { showToast("Erreur", "danger"); } document.getElementById('excel-upload').value = '';
+    }; r.readAsArrayBuffer(f);
+}
+function openModalDecompte() { const c = appData.chantiers.find(x=>x.id===appData.currentChantierId); let h=''; let i=0; c.lots.forEach(l=>{ h+=`<tr style="background:var(--gray-800);"><td colspan="5" style="font-weight:bold;">${l.nom}</td></tr>`; l.items.forEach(it=>{ h+=`<tr><td>${it.ref}</td><td>${it.unite}</td><td>${it.qte}</td><td class="font-bold text-gray-400">${it.realise}</td><td><input type="number" class="form-input w-24 border-info text-info font-bold" id="dec-inp-${i}" value="${it.realise}" min="${it.realise}" max="${it.qte}"></td></tr>`; i++; }); }); document.getElementById('decompteFormBody').innerHTML=h; openModal('modalDecompte'); }
+
+function saveDecompte() { 
+    const c = appData.chantiers.find(x=>x.id===appData.currentChantierId); let tA=0; let tN=0; let i=0; 
+    c.lots.forEach(l=>l.items.forEach(it=>{ 
+        const nv = parseFloat(document.getElementById(`dec-inp-${i}`).value)||it.realise; 
+        const delta = nv - it.realise;
+        
+        // Auto-déduction du Stock Travaux lié à cet achat
+        if(delta > 0) {
+            appData.achats.forEach(a => {
+                if(a.chantier === c.nom && a.status !== 'Annulé') {
+                    (a.items || []).forEach(itAchat => {
+                        if(itAchat.bpuImputation === it.ref) {
+                            const artMatch = appData.articles.find(art => art.code === itAchat.code);
+                            if(artMatch) {
+                                let stockLine = appData.stock.find(s => s.articleId === artMatch.id && s.chantier === c.nom);
+                                if(stockLine && stockLine.qteTravaux > 0) {
+                                    stockLine.qteTravaux = Math.max(0, stockLine.qteTravaux - delta);
+                                }
+                            }
+                        }
+                    });
+                }
+            });
+        }
+        
+        tA+=(it.realise*it.pu); tN+=(nv*it.pu); it.realise=nv; i++; 
+    })); 
+    const mHT = tN-tA; 
+    if(mHT>0) { 
+        c.decomptes.push({id:Date.now(), date:new Date().toISOString(), montant:mHT*1.2, status:'Attachement'}); 
+        saveData(); closeModal('modalDecompte'); openChantierDetail(c.id); renderDashboard(); renderStock(); showToast("Attachement créé, Stock Travaux déduit", "warning"); 
+    } else { showToast("Aucun avancement saisi.", "warning"); } 
+}
+
+function renderDecomptes(c) { 
+    document.getElementById('decomptesTableBody').innerHTML = (c.decomptes||[]).map(d => {
+        let btn = d.status === 'Attachement' ? `<button class="btn btn-sm btn-success" onclick="validerDecompte(${c.id}, ${d.id})">Valider Encaissement</button>` : `<span class="text-success font-bold"><i class="fas fa-check"></i> Encaissé</span>`;
+        let delBtn = `<button class="btn-ghost text-danger ml-2" onclick="deleteDecompte(${c.id}, ${d.id})"><i class="fas fa-trash"></i></button>`;
+        return `<tr><td class="font-bold text-white">N°${d.id.toString().slice(-4)}</td><td>${new Date(d.date).toLocaleDateString('fr-FR')}</td><td class="font-black ${d.status==='Attachement'?'text-warning':'text-success'} text-lg">${fmtMAD(d.montant)}</td><td><span class="badge ${d.status==='Attachement'?'badge-warning':'badge-success'}">${d.status}</span></td><td><div class="flex items-center">${btn} ${delBtn}</div></td></tr>`; 
+    }).join(''); 
+}
+function validerDecompte(chantierId, decompteId) { const c = appData.chantiers.find(x=>x.id===chantierId); if(!c) return; const d = c.decomptes.find(x=>x.id===decompteId); if(d) { d.status = 'Décompte'; saveData(); renderDecomptes(c); renderDashboard(); showToast("Décompte Encaissé !", "success"); } }
+function deleteDecompte(chantierId, decompteId) { if(!confirm("Supprimer cette pièce ?")) return; const c = appData.chantiers.find(x=>x.id===chantierId); if(!c) return; c.decomptes = c.decomptes.filter(d => d.id !== decompteId); saveData(); renderDecomptes(c); renderDashboard(); showToast("Pièce annulée", "success"); }
+
+// ==========================================
+// BASES DE DONNEES
+// ==========================================
+function renderDBChantiers() { document.getElementById('dbChantiersBody').innerHTML = appData.dbChantiers.map(c => `<tr><td class="font-bold text-white">${c.nom}</td><td>${c.adresse}</td><td><div class="action-group"><button class="btn-ghost" onclick="editDBChantier(${c.id})"><i class="fas fa-edit"></i></button><button class="btn-ghost text-danger" onclick="deleteDBChantier(${c.id})"><i class="fas fa-trash"></i></button></div></td></tr>`).join(''); }
+function openModalDBChantier() { document.getElementById('db-ch-id').value=''; document.getElementById('db-ch-nom').value=''; document.getElementById('db-ch-adresse').value=''; document.getElementById('modalDBChantierTitle').innerText='Nouvelle Affectation'; openModal('modalDBChantier'); }
+function editDBChantier(id) { const c=appData.dbChantiers.find(x=>x.id===id); document.getElementById('db-ch-id').value=c.id; document.getElementById('db-ch-nom').value=c.nom; document.getElementById('db-ch-adresse').value=c.adresse; document.getElementById('modalDBChantierTitle').innerText='Modifier Affectation'; openModal('modalDBChantier'); }
+function saveDBChantier() { const id=document.getElementById('db-ch-id').value; const data={nom:document.getElementById('db-ch-nom').value, adresse:document.getElementById('db-ch-adresse').value}; if(!data.nom) return showToast("Nom requis", "danger"); if(id) { const idx=appData.dbChantiers.findIndex(x=>x.id==parseInt(id)); if(idx>-1) appData.dbChantiers[idx]={...appData.dbChantiers[idx], ...data}; } else { appData.dbChantiers.push({id:Date.now(), ...data}); } saveData(); renderDBChantiers(); updateFiltersUI(); closeModal('modalDBChantier'); showToast("Affectation sauvegardée", "success"); }
+function deleteDBChantier(id) { if(confirm("Supprimer cette affectation ?")) { appData.dbChantiers = appData.dbChantiers.filter(c => c.id !== id); saveData(); renderDBChantiers(); updateFiltersUI(); } }
+
+function renderDBArticles() { document.getElementById('dbArticlesBody').innerHTML = appData.articles.map(a => `<tr><td class="font-bold text-white">${a.code}</td><td>${a.name}</td><td>${a.unite}</td><td class="font-bold">${fmtMADShort(a.refPrice)}</td><td><div class="action-group"><button class="btn-ghost" onclick="editArticle(${a.id})"><i class="fas fa-edit"></i></button><button class="btn-ghost text-danger" onclick="deleteArticle(${a.id})"><i class="fas fa-trash"></i></button></div></td></tr>`).join(''); }
+function openModalArticle() { document.getElementById('art-id').value=''; document.getElementById('art-code').value=''; document.getElementById('art-nom').value=''; document.getElementById('art-unite').value=''; document.getElementById('art-prix').value=''; document.getElementById('modalArticleTitle').innerText='Nouvel Article'; openModal('modalArticle'); }
+function editArticle(id) { const a=appData.articles.find(x=>x.id===id); document.getElementById('art-id').value=a.id; document.getElementById('art-code').value=a.code; document.getElementById('art-nom').value=a.name; document.getElementById('art-unite').value=a.unite; document.getElementById('art-prix').value=a.refPrice; document.getElementById('modalArticleTitle').innerText='Modifier Article'; openModal('modalArticle'); }
+function saveArticle() { const id = document.getElementById('art-id').value; const data = { code: document.getElementById('art-code').value, name: document.getElementById('art-nom').value, unite: document.getElementById('art-unite').value, refPrice: parseFloat(document.getElementById('art-prix').value) }; if(!data.code || !data.name) return; if(id) { const idx = appData.articles.findIndex(x=>x.id==id); appData.articles[idx]={...appData.articles[idx], ...data}; } else { appData.articles.push({id:Date.now(), ...data}); } saveData(); renderDBArticles(); renderStock(); closeModal('modalArticle'); }
+function deleteArticle(id) { if(confirm("Supprimer l'article ?")) { appData.articles = appData.articles.filter(a => a.id !== id); saveData(); renderDBArticles(); renderStock(); } }
+
+function renderDBFournisseurs() { document.getElementById('dbFournisseursBody').innerHTML = appData.fournisseurs.map(f => `<tr><td class="font-bold text-white">${f.nom}</td><td>${f.spec}</td><td>${f.contact}</td><td><div class="action-group"><button class="btn-ghost" onclick="editFournisseur(${f.id})"><i class="fas fa-edit"></i></button><button class="btn-ghost text-danger" onclick="deleteFournisseur(${f.id})"><i class="fas fa-trash"></i></button></div></td></tr>`).join(''); }
+function openModalFournisseur() { document.getElementById('fourn-id').value=''; document.getElementById('fourn-nom').value=''; document.getElementById('fourn-spec').value=''; document.getElementById('fourn-contact').value=''; document.getElementById('modalFournTitle').innerText='Nouveau Fournisseur'; openModal('modalFournisseur'); }
+function editFournisseur(id) { const f=appData.fournisseurs.find(x=>x.id===id); document.getElementById('fourn-id').value=f.id; document.getElementById('fourn-nom').value=f.nom; document.getElementById('fourn-spec').value=f.spec; document.getElementById('fourn-contact').value=f.contact; document.getElementById('modalFournTitle').innerText='Modifier Fournisseur'; openModal('modalFournisseur'); }
+function saveFournisseur() { const id = document.getElementById('fourn-id').value; const data = { nom: document.getElementById('fourn-nom').value, spec: document.getElementById('fourn-spec').value, contact: document.getElementById('fourn-contact').value }; if(!data.nom) return; if(id) { const idx = appData.fournisseurs.findIndex(x=>x.id==id); appData.fournisseurs[idx]={...appData.fournisseurs[idx], ...data}; } else { appData.fournisseurs.push({id:Date.now(), ...data}); } saveData(); renderDBFournisseurs(); closeModal('modalFournisseur'); }
+function deleteFournisseur(id) { if(confirm("Supprimer le fournisseur ?")) { appData.fournisseurs = appData.fournisseurs.filter(f => f.id !== id); saveData(); renderDBFournisseurs(); } }
+
+function renderDBSoustraitants() { document.getElementById('dbSoustraitantsBody').innerHTML = appData.dbSoustraitants.map(st => `<tr><td class="font-bold text-white">${st.nom}</td><td>${st.spec}</td><td>${st.contact}</td><td><div class="action-group"><button class="btn-ghost" onclick="editDBSoustraitant(${st.id})"><i class="fas fa-edit"></i></button><button class="btn-ghost text-danger" onclick="deleteDBSoustraitant(${st.id})"><i class="fas fa-trash"></i></button></div></td></tr>`).join(''); }
+function openModalDBST() { document.getElementById('inp-db-st-id').value=''; document.getElementById('inp-db-st-nom').value=''; document.getElementById('inp-db-st-spec').value=''; document.getElementById('inp-db-st-contact').value=''; openModal('modalNewSTDB'); }
+function editDBSoustraitant(id) { const st = appData.dbSoustraitants.find(x=>x.id===id); document.getElementById('inp-db-st-id').value = st.id; document.getElementById('inp-db-st-nom').value = st.nom; document.getElementById('inp-db-st-spec').value = st.spec; document.getElementById('inp-db-st-contact').value = st.contact; openModal('modalNewSTDB'); }
+function saveDBSoustraitant() { const id = document.getElementById('inp-db-st-id').value; const nom = document.getElementById('inp-db-st-nom').value; const spec = document.getElementById('inp-db-st-spec').value; const contact = document.getElementById('inp-db-st-contact').value; if(nom) { if(id) { const idx = appData.dbSoustraitants.findIndex(x=>x.id==parseInt(id)); if(idx>-1) appData.dbSoustraitants[idx] = { id: parseInt(id), nom, spec, contact }; } else { appData.dbSoustraitants.push({ id:Date.now(), nom, spec, contact }); } saveData(); renderDBSoustraitants(); closeModal('modalNewSTDB'); } }
+function deleteDBSoustraitant(id) { if(confirm("Supprimer ?")) { appData.dbSoustraitants = appData.dbSoustraitants.filter(x=>x.id!==id); saveData(); renderDBSoustraitants(); } }
+
+// DÉMARRAGE GLOBAL
+document.addEventListener('DOMContentLoaded', loadData);
+</script>
+</body>
+</html>

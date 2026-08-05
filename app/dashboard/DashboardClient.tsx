@@ -411,56 +411,58 @@ export default function DashboardClient() {
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-8">
       <FadeSwap show={showSkeleton} skeleton={<DashboardSkeleton />}>
-    <ChartJsLoader>
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.25 }}
-      >
-        <div className="mb-6">
-          <h1 className="text-xl sm:text-2xl font-bold text-content-primary dark:text-content-primary-dark">
-            Vue d&apos;ensemble
-          </h1>
-          <p className="text-sm text-content-muted dark:text-content-muted-dark mt-1">
-            Indicateurs clés de tous les modules.
-          </p>
-        </div>
+        <ChartJsLoader>
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25 }}
+          >
+            {!canFinanceKpis && (
+              <div className="mb-6">
+                <h1 className="text-xl sm:text-2xl font-bold text-white">
+                  Vue d&apos;ensemble
+                </h1>
+                <p className="text-sm text-gray-400 mt-1">
+                  Indicateurs clés de tous les modules.
+                </p>
+              </div>
+            )}
 
-        {canFinanceKpis && (
-          <FinanceKpisSection
-            kpis={kpis}
-            loading={kpisLoading}
-            month={kpisMonth}
-            onMonthChange={setKpisMonth}
-          />
-        )}
+            {canFinanceKpis && (
+              <FinanceKpisSection
+                kpis={kpis}
+                loading={kpisLoading}
+                month={kpisMonth}
+                onMonthChange={setKpisMonth}
+              />
+            )}
 
-        {topCards.length === 0 && domainCards.length === 0 ? (
-          <div className="flex flex-col items-center justify-center min-h-[40vh] gap-2 text-center">
-            <p className="text-sm font-medium text-content-primary dark:text-content-primary-dark">
-              Aucun module accessible avec votre rôle actuel.
-            </p>
-            <p className="text-xs text-content-muted dark:text-content-muted-dark">
-              Contactez un administrateur si vous pensez que c&apos;est une erreur.
-            </p>
-          </div>
-        ) : (
-          <>
-            <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4 mb-8">
-              {topCards.map((c) => (
-                <TopKpiCard key={c.title} {...c} />
-              ))}
-            </section>
+            {topCards.length === 0 && domainCards.length === 0 ? (
+              <div className="flex flex-col items-center justify-center min-h-[40vh] gap-2 text-center">
+                <p className="text-sm font-medium text-content-primary dark:text-content-primary-dark">
+                  Aucun module accessible avec votre rôle actuel.
+                </p>
+                <p className="text-xs text-content-muted dark:text-content-muted-dark">
+                  Contactez un administrateur si vous pensez que c&apos;est une erreur.
+                </p>
+              </div>
+            ) : (
+              <>
+                <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4 mb-8">
+                  {topCards.map((c) => (
+                    <TopKpiCard key={c.title} {...c} />
+                  ))}
+                </section>
 
-            <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {domainCards.map((c) => (
-                <DomainCard key={c.href} {...c} />
-              ))}
-            </section>
-          </>
-        )}
-      </motion.div>
-    </ChartJsLoader>
+                <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {domainCards.map((c) => (
+                    <DomainCard key={c.href} {...c} />
+                  ))}
+                </section>
+              </>
+            )}
+          </motion.div>
+        </ChartJsLoader>
       </FadeSwap>
     </div>
   );
@@ -514,28 +516,22 @@ function TopKpiCard({
   href: string;
 }) {
   return (
-    <Link href={href} className="block group">
+    <Link href={href} className="block group h-full">
       <div
         className="
-          dark:bg-surface-card-dark bg-surface-card
-          rounded-lg border border-edge-default dark:border-zinc-700
-          shadow-md p-3 h-25
+          bg-[#1a1d25] border border-[#242830] rounded-xl
+          shadow-md p-5 h-full
           flex flex-col justify-between transition-all duration-150
           group-hover:shadow-lg group-hover:border-accent/50
+          relative overflow-hidden
         "
       >
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] font-bold text-content-primary dark:text-content-primary-dark uppercase tracking-wide">
-            {title}
-          </span>
-          <span className="text-content-muted group-hover:text-accent transition-colors text-xs">→</span>
+        <div className="flex items-center justify-between mb-3 z-10 relative">
+          <span className="text-[10px] font-bold text-[#5a6275] uppercase tracking-widest">{title}</span>
+          <span className="text-[#3d4350] group-hover:text-accent transition-colors text-[10px]">→</span>
         </div>
-        <div className="text-base sm:text-lg font-bold font-mono text-content-secondary dark:text-content-secondary-dark">
-          {value}
-        </div>
-        <div className="text-[11px] text-content-muted dark:text-content-muted-dark truncate">
-          {sub}
-        </div>
+        <div className="text-2xl font-bold font-mono text-content-primary-dark mb-1.5 leading-none z-10 relative">{value}</div>
+        <div className="text-[10px] text-[#5a6275] truncate z-10 relative">{sub}</div>
       </div>
     </Link>
   );
@@ -552,97 +548,162 @@ function FinanceKpisSection({
   month: string;
   onMonthChange: (month: string) => void;
 }) {
-  const balanceKpis = [
-    { label: "Dettes Fournisseurs (TTC)", value: kpis?.dettesFournisseursTtc },
-    { label: "Dettes Sous-traitants (TTC)", value: kpis?.dettesSousTraitantsTtc },
-    { label: "Paie à Payer (NET)", value: kpis?.paieAPayerNet },
-    { label: "Attachements en Cours (TTC)", value: kpis?.attachementsEnCoursTtc },
-    { label: "Valeur Stocks Globale (HT)", value: kpis?.valeurStocksGlobaleHt },
-  ];
-
-  const flowKpis = [
-    { label: "Décaissements Caisse (TTC)", value: kpis?.decaissementsCaisseTtc },
-    { label: "Encaissements Globaux (TTC)", value: kpis?.encaissementsGlobauxTtc },
-    { label: "Décaissements Globaux (TTC)", value: kpis?.decaissementsGlobauxTtc },
-  ];
-
   return (
-    <section className="mb-8">
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-bold uppercase tracking-wide text-content-secondary dark:text-content-secondary-dark">
-          Finance &amp; Marges
-        </h2>
-        <label className="flex items-center gap-2 text-xs text-content-muted dark:text-content-muted-dark">
-          Période (flux)
-          <input
-            type="month"
-            value={month}
-            onChange={(e) => onMonthChange(e.target.value)}
-            className="rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark px-2 py-1"
-          />
-          {month && (
-            <button type="button" onClick={() => onMonthChange("")} className="text-accent font-semibold">
-              Tout
-            </button>
-          )}
-        </label>
-      </div>
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 xl:grid-cols-5 mb-3">
-        {balanceKpis.map((k) => (
-          <FinanceKpiCard key={k.label} label={k.label} value={k.value} loading={loading} />
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 mb-3">
-        {flowKpis.map((k) => (
-          <FinanceKpiCard key={k.label} label={k.label} value={k.value} loading={loading} />
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <FinanceKpiCard
-          label="Marge Nette Comptable (HT)"
-          value={kpis?.margeNetteComptableHt}
-          loading={loading}
-          highlight
-        />
-        <FinanceKpiCard
-          label="Marge en Cours Prévisionnelle (HT)"
-          value={kpis?.margeEnCoursPrevisionnelleHt}
-          loading={loading}
-          highlight
+    <div className="module-view active">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-white mb-1">Tableau de Bord Direction</h1>
+          <p className="text-xs text-gray-400">Situation en temps réel — <span id="dash-current-month-text">{month ? `Mois : ${month.split('-')[1]}/${month.split('-')[0]}` : 'Toutes les périodes'}</span></p>
+        </div>
+        <input
+          type="month"
+          id="dash-month-filter"
+          className="w-auto h-10 px-3 bg-surface-card-dark text-content-primary-dark border border-[#242830] rounded-lg outline-none"
+          value={month}
+          onChange={(e) => onMonthChange(e.target.value)}
         />
       </div>
-    </section>
+
+      <h3 className="text-[#5a6275] mb-3 text-[11px] font-bold tracking-wider uppercase">
+        <i className="fas fa-coins mr-2"></i>Trésorerie & Dettes (Affichage TTC)
+      </h3>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-7">
+        <ModernKpiCard
+          color="red"
+          label="DETTES FOURNISSEURS (TTC)"
+          value={kpis?.dettesFournisseursTtc}
+          textColor="text-red-500"
+          sub="Déjà payé TTC :"
+          subVal={0}
+          loading={loading}
+        />
+        <ModernKpiCard
+          color="red"
+          label="DETTES SOUS-TRAITANTS (TTC)"
+          value={kpis?.dettesSousTraitantsTtc}
+          textColor="text-red-500"
+          sub="Déjà payé TTC :"
+          subVal={0}
+          loading={loading}
+        />
+        <ModernKpiCard
+          color="yellow"
+          label="PAIE (À PAYER NET)"
+          value={kpis?.paieAPayerNet}
+          textColor="text-amber-500"
+          sub="Déjà réglée NET :"
+          subVal={0}
+          loading={loading}
+        />
+        <ModernKpiCard
+          color="green"
+          label="DÉCAISSEMENTS CAISSE (TTC)"
+          value={kpis?.decaissementsCaisseTtc}
+          textColor="text-green-500"
+          sub="Dépenses réelles de caisses"
+          loading={loading}
+        />
+      </div>
+
+      <h3 className="text-[#5a6275] mt-6 mb-3 text-[11px] font-bold tracking-wider uppercase">
+        <i className="fas fa-chart-line mr-2"></i>Indicateurs Comptables (Affichage TTC, Base Marge HT)
+      </h3>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-7">
+        <ModernKpiCard
+          color="green"
+          label="ENCAISSEMENTS GLOBAUX (TTC)"
+          value={kpis?.encaissementsGlobauxTtc}
+          textColor="text-green-500"
+          sub="Décomptes clients encaissés"
+          loading={loading}
+        />
+        <ModernKpiCard
+          color="yellow"
+          label="ATTACHEMENTS EN COURS (TTC)"
+          value={kpis?.attachementsEnCoursTtc}
+          textColor="text-amber-500"
+          sub="Travaux validés non encaissés"
+          loading={loading}
+        />
+        <ModernKpiCard
+          color="white"
+          label="DÉCAISSEMENTS GLOBAUX (TTC)"
+          value={kpis?.decaissementsGlobauxTtc}
+          textColor="text-white"
+          sub="Sorties globales (Banque + Caisses)"
+          loading={loading}
+        />
+        <ModernKpiCard
+          color="blue"
+          label="VALEUR STOCKS GLOBALE (HT)"
+          value={kpis?.valeurStocksGlobaleHt}
+          textColor="text-blue-500"
+          subNode={<div className="text-[11px] text-[#5a6275] mt-2 flex justify-between font-bold"><span>Dépôts: <span className="text-white">0</span></span><span>En Travaux: <span className="text-amber-500">0</span></span></div>}
+          loading={loading}
+        />
+      </div>
+
+      {/* MARGES */}
+      <div className="bg-surface-card-dark p-6 rounded-xl border border-[#242830] mt-6 flex flex-col sm:flex-row justify-between items-start sm:items-center">
+        <div>
+          <h4 className="text-sm font-bold text-[#5a6275] uppercase tracking-wider">MARGE NETTE COMPTABLE (HT)</h4>
+          <p className="text-xs text-[#3d4350] mt-1">Formule : Encaissements Réels HT - Décaissements Réels TTC + Valeur des Stocks HT</p>
+        </div>
+        <div className={`text-3xl font-black font-['Space_Grotesk'] mt-4 sm:mt-0 ${kpis?.margeNetteComptableHt && kpis.margeNetteComptableHt < 0 ? "text-red-500" : "text-green-500"}`}>
+          {loading ? <Skeleton className="w-32 h-8" /> : `${kpis?.margeNetteComptableHt !== undefined ? fmt(kpis.margeNetteComptableHt) : "—"} MAD`}
+        </div>
+      </div>
+
+      <div className="bg-surface-card-dark/50 p-4 mb-6 rounded-xl border border-[#242830] mt-4 flex flex-col sm:flex-row justify-between items-start sm:items-center">
+        <div>
+          <h4 className="text-xs font-bold text-[#5a6275]  uppercase tracking-wider">MARGE EN COURS (PRÉVISIONNELLE HT)</h4>
+          <p className="text-[10px] text-[#3d4350] mt-1">Formule : Attachements en attente HT - Dettes à payer (Fournisseurs TTC + Sous-traitants TTC + Paie NET)</p>
+        </div>
+        <div className={`text-xl font-bold font-['Space_Grotesk'] mt-4 sm:mt-0 ${kpis?.margeEnCoursPrevisionnelleHt && kpis.margeEnCoursPrevisionnelleHt < 0 ? "text-red-500" : "text-green-500"}`}>
+          {loading ? <Skeleton className="w-24 h-6" /> : `${kpis?.margeEnCoursPrevisionnelleHt !== undefined ? fmt(kpis.margeEnCoursPrevisionnelleHt) : "—"} MAD`}
+        </div>
+      </div>
+    </div>
   );
 }
 
-function FinanceKpiCard({
+function ModernKpiCard({
+  color,
   label,
   value,
-  loading,
-  highlight,
+  textColor,
+  sub,
+  subVal,
+  subNode,
+  loading
 }: {
+  color: "red" | "green" | "yellow" | "blue" | "white";
   label: string;
-  value: number | undefined;
-  loading: boolean;
-  highlight?: boolean;
+  value?: number;
+  textColor: string;
+  sub?: string;
+  subVal?: number;
+  subNode?: React.ReactNode;
+  loading?: boolean;
 }) {
-  const negative = typeof value === "number" && value < 0;
+  const bgClass = color === "red" ? "bg-red-500" : color === "green" ? "bg-green-500" : color === "yellow" ? "bg-amber-500" : color === "blue" ? "bg-blue-500" : "bg-gray-500";
   return (
-    <Card className={`p-4 ${highlight ? "border-accent/40" : ""}`}>
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-content-muted dark:text-content-muted-dark mb-1">
+    <div className="bg-surface-card-dark border border-[#242830] rounded-xl p-5 relative overflow-hidden">
+      <div className={`absolute top-0 right-0 w-20 h-20 rounded-bl-[80px] opacity-[0.03] ${bgClass}`}></div>
+      <div className="text-[11px] text-[#5a6275] font-semibold mb-2 uppercase tracking-wide z-10 relative">
         {label}
-      </p>
-      {loading ? (
-        <Skeleton className="h-6 w-24" />
-      ) : (
-        <p className={`text-lg font-bold font-mono ${negative ? "text-red-600 dark:text-red-400" : "text-content-primary dark:text-content-primary-dark"}`}>
-          {typeof value === "number" ? `${fmt(value)} MAD` : "—"}
-        </p>
-      )}
-    </Card>
+      </div>
+      <div className={`font-mono text-2xl font-bold mb-1.5 leading-none z-10 relative ${textColor}`}>
+        {loading ? <Skeleton className="w-24 h-8" /> : (value !== undefined ? fmt(value) : "0")}
+      </div>
+      <div className="text-[10px] text-[#5a6275] mt-2 z-10 relative">
+        {subNode ? subNode : (
+          <>
+            {sub} {subVal !== undefined && <span className="text-green-500 font-bold">{fmt(subVal)}</span>}
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -661,17 +722,19 @@ function DomainCard({
 }) {
   return (
     <Link href={href} className="block group h-full">
-      <Card className="p-4 sm:p-5 h-full transition-all duration-150 group-hover:shadow-lg group-hover:border-accent/50">
+      <div className="bg-surface-card-dark border border-[#242830] rounded-xl p-4 sm:p-5 h-full transition-all duration-150 group-hover:shadow-lg group-hover:border-accent/50">
         <div className="flex items-center justify-between mb-1">
-          <p className="text-xs font-semibold text-content-secondary dark:text-content-secondary-dark uppercase tracking-wide">
+          <p className="text-[11px] font-bold text-[#5a6275] uppercase tracking-wide">
             {title}
           </p>
-          <span className="text-content-muted group-hover:text-accent transition-colors text-xs">→</span>
+          <span className="text-[#3d4350] group-hover:text-accent transition-colors text-xs">→</span>
         </div>
-        <p className="text-lg font-bold text-content-primary dark:text-content-primary-dark mb-0.5">{kpi}</p>
-        <p className="text-xs text-content-muted dark:text-content-muted-dark mb-3">{sub}</p>
-        {chart}
-      </Card>
+        <p className="text-xl font-bold font-mono text-[#fafbfd] mb-0.5">{kpi}</p>
+        <p className="text-xs text-[#5a6275] mb-3">{sub}</p>
+        <div className="mt-2 text-white">
+          {chart}
+        </div>
+      </div>
     </Link>
   );
 }
