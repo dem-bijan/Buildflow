@@ -24,6 +24,7 @@ import {
 } from "@/components/IndicateursOperation";
 import { fetchChantiers, type ChantierDTO } from "@/lib/api/chantier";
 import { fetchBpuLignes, type BpuLigneDTO } from "@/lib/api/bpu";
+import { CodeField } from "@/components/CodeField";
 import {
   ChartJsLoader, Section, Card, ChartCard,
   KpiGrid,
@@ -551,7 +552,7 @@ function CreateCaisseForm({ onCreated, onCancel }: { onCreated: () => void; onCa
   const [loadingOptions, setLoadingOptions] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState("");
-  const [form, setForm] = useState<CreateCaisseDTO>({ code: "", libelle: "", chantierId: "", seuilMinimum: 0 });
+  const [form, setForm] = useState<CreateCaisseDTO>({ libelle: "", chantierId: "", seuilMinimum: 0 });
 
   useEffect(() => {
     fetchChantiers()
@@ -563,8 +564,8 @@ function CreateCaisseForm({ onCreated, onCancel }: { onCreated: () => void; onCa
   const set = (key: keyof CreateCaisseDTO, val: string | number) => setForm((prev) => ({ ...prev, [key]: val }));
 
   const submit = async () => {
-    if (!form.code || !form.libelle || !form.chantierId) {
-      setErr("Code, libellé et chantier sont obligatoires.");
+    if (!form.libelle || !form.chantierId) {
+      setErr("Libellé et chantier sont obligatoires.");
       return;
     }
     setSubmitting(true);
@@ -593,10 +594,7 @@ function CreateCaisseForm({ onCreated, onCancel }: { onCreated: () => void; onCa
         <p className="text-sm text-content-muted dark:text-content-muted-dark">Chargement des chantiers…</p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <label className="space-y-1">
-            <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Code *</span>
-            <input className={inputCls} value={form.code} onChange={(e) => set("code", e.target.value)} placeholder="CAISSE-002" />
-          </label>
+          <CodeField hint="Dérivé du chantier" />
           <label className="space-y-1">
             <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Libellé *</span>
             <input className={inputCls} value={form.libelle} onChange={(e) => set("libelle", e.target.value)} placeholder="Caisse chantier X" />

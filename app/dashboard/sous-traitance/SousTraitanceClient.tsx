@@ -24,6 +24,7 @@ import { fetchSousTraitants, type SousTraitantDTO } from "@/lib/api/sousTraitant
 import { fetchChantiers, type ChantierDTO } from "@/lib/api/chantier";
 import { fetchBpuLignes, type BpuLigneDTO } from "@/lib/api/bpu";
 import { useAuth } from "@/lib/authContext";
+import { CodeField } from "@/components/CodeField";
 import {
   ChartJsLoader,
   Section,
@@ -443,7 +444,6 @@ function PaiementsPanel({
   onCreated: () => void;
 }) {
   const [showAdd, setShowAdd] = useState(false);
-  const [reference, setReference] = useState("");
   const [montant, setMontant] = useState("");
   const [motif, setMotif] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -452,7 +452,7 @@ function PaiementsPanel({
   const inputCls = "w-full px-3 py-2 text-sm rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow";
 
   async function submit() {
-    if (!reference || !montant || !motif) {
+    if (!montant || !motif) {
       setErr("Tous les champs sont obligatoires.");
       return;
     }
@@ -464,11 +464,9 @@ function PaiementsPanel({
     setErr("");
     try {
       await createPaiement(contratId, {
-        reference,
         montant: parseFloat(montant),
         motif,
       });
-      setReference("");
       setMontant("");
       setMotif("");
       setShowAdd(false);
@@ -498,7 +496,6 @@ function PaiementsPanel({
         <div className="mb-4 p-4 bg-surface-page dark:bg-surface-page-dark rounded-lg border border-edge-subtle dark:border-edge-subtle-dark">
           {err && <p className="text-xs text-red-500 mb-2">{err}</p>}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <input className={inputCls} required placeholder="Référence (ex: PAI-001)" value={reference} onChange={(e) => setReference(e.target.value)} />
             <input className={inputCls} type="number" min="0.01" step="0.01" required placeholder="Montant" value={montant} onChange={(e) => setMontant(e.target.value)} />
             <input className={inputCls} required placeholder="Motif" value={motif} onChange={(e) => setMotif(e.target.value)} />
           </div>
@@ -562,7 +559,6 @@ function CreateContratForm({ onCreated, onCancel }: { onCreated: () => void; onC
   const [err, setErr] = useState("");
 
   const [form, setForm] = useState<CreateContratSousTraitantDTO>({
-    reference: "",
     sousTraitantId: "",
     chantierId: "",
     objet: "",
@@ -600,7 +596,7 @@ function CreateContratForm({ onCreated, onCancel }: { onCreated: () => void; onC
     setForm((prev) => ({ ...prev, [key]: val }));
 
   const submit = async () => {
-    if (!form.reference || !form.sousTraitantId || !form.chantierId || !form.objet || !form.montantHt || !form.dateDebut || !form.dateFin) {
+    if (!form.sousTraitantId || !form.chantierId || !form.objet || !form.montantHt || !form.dateDebut || !form.dateFin) {
       setErr("Tous les champs sont obligatoires.");
       return;
     }
@@ -630,10 +626,7 @@ function CreateContratForm({ onCreated, onCancel }: { onCreated: () => void; onC
         <p className="text-sm text-content-muted dark:text-content-muted-dark">Chargement des sous-traitants et chantiers…</p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <label className="space-y-1">
-            <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Référence *</span>
-            <input className={inputCls} value={form.reference} onChange={(e) => set("reference", e.target.value)} placeholder="CST-2026-001" />
-          </label>
+          <CodeField label="Référence" />
 
           <label className="space-y-1">
             <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Sous-traitant *</span>

@@ -1,7 +1,9 @@
 "use client";
 
 
-import { createAchat, updateAchatIndicateurs } from "@/lib/api/achats";
+import { Fragment } from "react";
+import { createAchat, updateAchatIndicateurs, updateLignePrix } from "@/lib/api/achats";
+import { extractApiErrorMessage } from "@/lib/api/client";
 import {
   IndicateurBadge,
   IndicateurCheckbox,
@@ -232,6 +234,11 @@ export default function AchatsClient() {
     },
     []
   );
+
+  /** Swap in the order the server returned after a line was re-priced. */
+  const handleRepriced = useCallback((updated: Achat) => {
+    setAchats(prev => prev.map(a => (a.id === updated.id ? updated : a)));
+  }, []);
 
   const h = useMemo(() => hydrate<Achat, AchatsHydrated>(achats, achatsHydrationConfig), [achats]);
 
@@ -678,7 +685,7 @@ export default function AchatsClient() {
             {error && achats.length > 0 && (
               <p className="px-4 pb-3 text-xs text-red-500">{error}</p>
             )}
-            <AchatsTable achats={filtered} onToggleIndicateur={toggleIndicateur} />
+            <AchatsTable achats={filtered} onToggleIndicateur={toggleIndicateur} onRepriced={handleRepriced} />
           </Card>
         </Section>
         </ChartJsLoader>
@@ -740,9 +747,146 @@ function AchatsSkeleton() {
   );
 }
 
+/**
+ * Order lines for one purchase order, with the unit price editable in place.
+ * Re-pricing is allowed at every statut; the server answers with a warning when
+ * the order is already invoiced or paid, and that warning is shown here.
+ */
+function LignesPanel({ achat, onRepriced }: { achat: Achat; onRepriced: (updated: Achat) => void }) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [feedback, setFeedback] = useState<{ kind: "warning" | "error"; text: string } | null>(null);
+
+  const lignes = achat.lignes ?? [];
+
+  const startEdit = (ligneId: string, current: number) => {
+    setFeedback(null);
+    setEditingId(ligneId);
+    setDraft(String(current));
+  };
+
+  const save = async (ligneId: string) => {
+    const next = Number(draft);
+    if (!Number.isFinite(next) || next < 0) {
+      setFeedback({ kind: "error", text: "Le prix doit être un nombre positif." });
+      return;
+    }
+    setSaving(true);
+    try {
+      const { achat: updated, warning } = await updateLignePrix(achat.id, ligneId, next);
+      onRepriced(updated);
+      setEditingId(null);
+      setFeedback(warning ? { kind: "warning", text: warning } : null);
+    } catch (err) {
+      setFeedback({
+        kind: "error",
+        text: extractApiErrorMessage(err, "Impossible de modifier le prix de cette ligne."),
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div onClick={(e) => e.stopPropagation()}>
+      <h4 className="text-xs font-bold uppercase tracking-wider text-content-muted dark:text-content-muted-dark mb-3">
+        Lignes de commande ({lignes.length})
+      </h4>
+
+      {feedback && (
+        <p
+          role={feedback.kind === "error" ? "alert" : "status"}
+          className={`mb-3 rounded-lg border px-3 py-2 text-xs ${
+            feedback.kind === "error"
+              ? "border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300"
+              : "border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300"
+          }`}
+        >
+          {feedback.text}
+        </p>
+      )}
+
+      {lignes.length === 0 ? (
+        <p className="text-xs text-content-muted dark:text-content-muted-dark">Aucune ligne.</p>
+      ) : (
+        <table className="w-full text-xs border-collapse">
+          <thead>
+            <tr className="border-b border-edge-subtle dark:border-edge-subtle-dark">
+              {["Article", "Désignation", "Qté", "Unité", "Prix unitaire HT", "Total HT", ""].map((h, i) => (
+                <th key={i} className="text-left px-2 py-1.5 font-bold uppercase tracking-wider text-content-muted dark:text-content-muted-dark">
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {lignes.map((l) => {
+              const isEditing = editingId === l.id;
+              return (
+                <tr key={l.id} className="border-b border-edge-subtle dark:border-edge-subtle-dark">
+                  <td className="px-2 py-2 font-mono">{l.articleCode}</td>
+                  <td className="px-2 py-2">{l.designation}</td>
+                  <td className="px-2 py-2">{l.quantite}</td>
+                  <td className="px-2 py-2">{l.unite}</td>
+                  <td className="px-2 py-2">
+                    {isEditing ? (
+                      <input
+                        autoFocus
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={draft}
+                        disabled={saving}
+                        onChange={(e) => setDraft(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") save(l.id);
+                          if (e.key === "Escape") setEditingId(null);
+                        }}
+                        className="w-28 px-2 py-1 rounded border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark focus:outline-none focus:ring-2 focus:ring-accent/40"
+                      />
+                    ) : (
+                      <span>{fmt(l.prixUnitaire)}</span>
+                    )}
+                  </td>
+                  <td className="px-2 py-2 font-semibold">{fmt(l.total)}</td>
+                  <td className="px-2 py-2 whitespace-nowrap">
+                    {isEditing ? (
+                      <>
+                        <button
+                          onClick={() => save(l.id)}
+                          disabled={saving}
+                          className="text-accent font-semibold mr-3 disabled:opacity-50"
+                        >
+                          {saving ? "…" : "Enregistrer"}
+                        </button>
+                        <button onClick={() => setEditingId(null)} className="text-content-muted">
+                          Annuler
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => startEdit(l.id, l.prixUnitaire)}
+                        className="text-accent font-semibold"
+                      >
+                        Modifier le prix
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
 function AchatsTable({
   achats,
   onToggleIndicateur,
+  onRepriced,
 }: {
   achats: Achat[];
   onToggleIndicateur: (
@@ -750,6 +894,7 @@ function AchatsTable({
     key: "impactAnalytiqueChantier" | "impactComptableFiscal",
     next: boolean
   ) => void;
+  onRepriced: (updated: Achat) => void;
 }) {
   const [expanded, setExpanded] = useState<string | null>(null);
   const hTable = useMemo(() => achatsHydrationConfig.table(achats), [achats]);
@@ -789,9 +934,10 @@ function AchatsTable({
         <tbody>
           {hTable.rows.map(row => {
             const isOpen = expanded === row.id;
+            const achat = achats.find(a => a.id === row.id);
             return (
+              <Fragment key={row.id}>
               <tr
-                key={row.id}
                 onClick={() => setExpanded(isOpen ? null : row.id)}
                 className={`border-b border-edge-subtle dark:border-edge-subtle-dark cursor-pointer transition-colors duration-150 ${isOpen ? "bg-accent-50 dark:bg-accent-950/30" : "hover:bg-surface-hover dark:hover:bg-surface-hover-dark"}`}
               >
@@ -827,6 +973,14 @@ function AchatsTable({
                   />
                 </td>
               </tr>
+              {isOpen && achat && (
+                <tr>
+                  <td colSpan={10} className="bg-surface-hover dark:bg-surface-hover-dark px-4 py-4">
+                    <LignesPanel achat={achat} onRepriced={onRepriced} />
+                  </td>
+                </tr>
+              )}
+              </Fragment>
             );
           })}
         </tbody>

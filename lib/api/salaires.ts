@@ -58,7 +58,6 @@ export interface SalarieDTO {
 
 /** Shape sent when creating a new salaire (POST /api/v1/salaires). */
 export interface CreateSalarieDTO {
-  reference: string;
   employeId: string;
   chantierId?: string;
   periode: string;

@@ -62,7 +62,6 @@ export interface CaisseDTO {
 }
 
 export interface CreateCaisseDTO {
-  code: string;
   libelle: string;
   chantierId: string;
   seuilMinimum: number;

@@ -24,6 +24,7 @@ import {
   TableSkeleton,
 } from "@/components/Functions";
 import type { ChantierDTO, CreateChantierDTO, ChantierStatut } from "@/lib/api/chantier";
+import { CodeField } from "@/components/CodeField";
 
 const STATUT_LABELS: Record<string, string> = {
   EN_PREPARATION: "En préparation",
@@ -417,7 +418,7 @@ function CreateChantierForm({
           budgetHt: editing.budgetHt, chefProjetNom: editing.chefProjetNom ?? "",
         }
       : {
-          code: "", nom: "", client: "", adresse: "", ville: "",
+          nom: "", client: "", adresse: "", ville: "",
           statut: "EN_PREPARATION", dateDebut: "", dateFin: "", budgetHt: 0, chefProjetNom: "",
         }
   );
@@ -426,8 +427,8 @@ function CreateChantierForm({
     setForm(prev => ({ ...prev, [key]: val }));
 
   const submit = async () => {
-    if (!form.code || !form.nom || !form.client || !form.dateDebut || !form.dateFin || !form.budgetHt) {
-      setErr("Veuillez remplir les champs obligatoires (Code, Nom, Client, Dates, Budget).");
+    if (!form.nom || !form.client || !form.dateDebut || !form.dateFin || !form.budgetHt) {
+      setErr("Veuillez remplir les champs obligatoires (Nom, Client, Dates, Budget).");
       return;
     }
     setSubmitting(true); setErr("");
@@ -458,10 +459,7 @@ function CreateChantierForm({
       {err && <p className="text-xs text-red-500 mb-3">{err}</p>}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <label className="space-y-1">
-          <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Code *</span>
-          <input className={inputCls} value={form.code} onChange={e => set("code", e.target.value)} placeholder="CH-001" />
-        </label>
+        <CodeField value={editing?.code} />
         <label className="space-y-1">
           <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Nom *</span>
           <input className={inputCls} value={form.nom} onChange={e => set("nom", e.target.value)} placeholder="Résidence Al Manar" />

@@ -14,9 +14,9 @@ import {
   Card,
 } from "@/components/Functions";
 import type { Employe } from "@/components/functions2";
+import { CodeField } from "@/components/CodeField";
 
 const emptyEmployeForm: CreateEmployeDTO = {
-  matricule: "",
   nom: "",
   prenom: "",
   role: "OUVRIER",
@@ -128,7 +128,7 @@ export default function AnnuairePage() {
             <button type="button" onClick={() => setShowForm(false)} className="text-xs text-content-muted dark:text-content-muted-dark hover:text-content-primary dark:hover:text-content-primary-dark transition-colors">✕ Annuler</button>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
-            <label className="text-sm space-y-1"><span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Matricule</span><input required value={form.matricule} onChange={(event) => setForm((value) => ({ ...value, matricule: event.target.value }))} className="w-full rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow" /></label>
+            <CodeField label="Matricule" />
             <label className="text-sm space-y-1"><span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Nom</span><input required value={form.nom} onChange={(event) => setForm((value) => ({ ...value, nom: event.target.value }))} className="w-full rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow" /></label>
             <label className="text-sm space-y-1"><span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Prénom</span><input required value={form.prenom} onChange={(event) => setForm((value) => ({ ...value, prenom: event.target.value }))} className="w-full rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow" /></label>
             <label className="text-sm space-y-1">
