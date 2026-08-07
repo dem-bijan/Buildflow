@@ -256,7 +256,7 @@ export default function CataloguePage() {
             </label>
             <label className="text-sm space-y-1">
               <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Prix d’achat de référence</span>
-              <input type="number" min="0" step="0.01" required value={form.prixAchatRef ?? 0} onChange={(event) => setForm((value) => ({ ...value, prixAchatRef: Number(event.target.value) }))} className="w-full rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow" />
+              <input type="number" min="0" step="any" required value={form.prixAchatRef ?? 0} onChange={(event) => setForm((value) => ({ ...value, prixAchatRef: Number(event.target.value) }))} className="w-full rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow" />
             </label>
             <label className="text-sm space-y-1">
               <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">TVA (%)</span>
