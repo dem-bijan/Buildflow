@@ -8,7 +8,6 @@ export interface CategorieArticleDTO {
 }
 
 export interface CreateCategorieArticleDTO {
-    code: string;
     libelle: string;
     parentId: string | null;
 }

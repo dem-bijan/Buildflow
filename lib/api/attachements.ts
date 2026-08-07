@@ -33,7 +33,6 @@ export interface CreateAttachementLigneDTO {
 }
 
 export interface CreateAttachementDTO {
-  reference: string;
   dateAttachement: string;
   lignes: CreateAttachementLigneDTO[];
 }

@@ -12,6 +12,7 @@ import {
 import { hydrate, fmt } from "@/components/functions2";
 import type { Paiement, PaiementsHydrated, PaiementType } from "@/components/functions2";
 import { paiementsHydrationConfig } from "@/components/functions2";
+import { CodeField } from "@/components/CodeField";
 
 import {
   ChartJsLoader,
@@ -45,7 +46,6 @@ export default function PaymentsClient() {
 
   const [form, setForm] = useState({
     contratId: "",
-    reference: "",
     montant: "",
     motif: "",
   });
@@ -122,7 +122,7 @@ export default function PaymentsClient() {
   };
 
   const handleCreate = async () => {
-    if (!form.contratId || !form.reference || !form.montant || !form.motif) {
+    if (!form.contratId || !form.montant || !form.motif) {
       setFormError("Tous les champs sont obligatoires.");
       return;
     }
@@ -134,14 +134,12 @@ export default function PaymentsClient() {
     setFormError(null);
     try {
       await createPaiement(form.contratId, {
-        reference: form.reference,
         montant: Number(form.montant),
         motif: form.motif,
       });
 
       setForm({
         contratId: "",
-        reference: "",
         montant: "",
         motif: "",
       });
@@ -286,24 +284,7 @@ export default function PaymentsClient() {
                 </select>
               </label>
 
-              <label className="space-y-1">
-                <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">
-                  Référence *
-                </span>
-
-                <input
-                  className={inputCls}
-                  required
-                  value={form.reference}
-                  onChange={(e) =>
-                    setForm((p) => ({
-                      ...p,
-                      reference: e.target.value,
-                    }))
-                  }
-                  placeholder="PAY-ST-2026-001"
-                />
-              </label>
+              <CodeField label="Référence" />
 
               <label className="space-y-1">
                 <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">

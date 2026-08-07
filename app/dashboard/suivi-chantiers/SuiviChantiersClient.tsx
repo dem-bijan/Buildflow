@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { fetchChantiers, createChantier, updateChantier, deleteChantier, demarrerChantier } from "@/lib/api/chantier";
+import { extractApiErrorMessage } from "@/lib/api/client";
 import { useAuth } from "@/lib/authContext";
 import { hydrate } from "@/components/functions2";
 import type { Chantier, ChantiersHydrated } from "@/components/functions2";
@@ -23,6 +24,7 @@ import {
   TableSkeleton,
 } from "@/components/Functions";
 import type { ChantierDTO, CreateChantierDTO, ChantierStatut } from "@/lib/api/chantier";
+import { CodeField } from "@/components/CodeField";
 
 const STATUT_LABELS: Record<string, string> = {
   EN_PREPARATION: "En préparation",
@@ -51,6 +53,10 @@ export default function SuiviChantiersClient() {
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<ChantierDTO | null>(null);
+  // Action feedback (delete/démarrer). Kept apart from `error`, which is the
+  // "could not load the page at all" state and only renders on an empty list —
+  // a failed delete used to be written there and was therefore never displayed.
+  const [notice, setNotice] = useState<{ kind: "error" | "success"; text: string } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -79,21 +85,32 @@ export default function SuiviChantiersClient() {
   useEffect(() => { load(); }, [load]);
 
   const handleDelete = async (c: ChantierDTO) => {
-    if (!confirm(`Supprimer le chantier "${c.nom}" ?`)) return;
+    if (!confirm(`Supprimer le chantier "${c.nom}" ?\n\nLes jalons, lignes BPU et la caisse (si elle n'a aucune opération) seront supprimés avec le chantier.`)) return;
+    setNotice(null);
     try {
       await deleteChantier(c.id);
       await load();
-    } catch {
-      setError("Impossible de supprimer ce chantier (peut-être référencé par des achats, contrats, etc.).");
+      setNotice({ kind: "success", text: `Chantier "${c.nom}" supprimé.` });
+    } catch (err) {
+      // The backend names exactly what still references the chantier — show it
+      // instead of a generic guess.
+      setNotice({
+        kind: "error",
+        text: extractApiErrorMessage(
+          err,
+          "Impossible de supprimer ce chantier. Vérifiez qu'aucun achat, contrat ou opération de caisse n'y est rattaché."
+        ),
+      });
     }
   };
 
   const handleDemarrer = async (c: ChantierDTO) => {
+    setNotice(null);
     try {
       await demarrerChantier(c.id);
       await load();
-    } catch {
-      setError("Impossible de démarrer ce chantier.");
+    } catch (err) {
+      setNotice({ kind: "error", text: extractApiErrorMessage(err, "Impossible de démarrer ce chantier.") });
     }
   };
 
@@ -154,6 +171,26 @@ export default function SuiviChantiersClient() {
             )}
           </div>
         </div>
+
+        {notice && (
+          <div
+            role={notice.kind === "error" ? "alert" : "status"}
+            className={`mb-6 flex items-start justify-between gap-4 rounded-xl border px-4 py-3 text-sm ${
+              notice.kind === "error"
+                ? "border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300"
+                : "border-green-200 dark:border-green-900/50 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300"
+            }`}
+          >
+            <span>{notice.text}</span>
+            <button
+              onClick={() => setNotice(null)}
+              aria-label="Fermer"
+              className="shrink-0 font-semibold opacity-70 hover:opacity-100 transition-opacity"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {showForm && canManage && (
           <CreateChantierForm
@@ -381,7 +418,7 @@ function CreateChantierForm({
           budgetHt: editing.budgetHt, chefProjetNom: editing.chefProjetNom ?? "",
         }
       : {
-          code: "", nom: "", client: "", adresse: "", ville: "",
+          nom: "", client: "", adresse: "", ville: "",
           statut: "EN_PREPARATION", dateDebut: "", dateFin: "", budgetHt: 0, chefProjetNom: "",
         }
   );
@@ -390,8 +427,8 @@ function CreateChantierForm({
     setForm(prev => ({ ...prev, [key]: val }));
 
   const submit = async () => {
-    if (!form.code || !form.nom || !form.client || !form.dateDebut || !form.dateFin || !form.budgetHt) {
-      setErr("Veuillez remplir les champs obligatoires (Code, Nom, Client, Dates, Budget).");
+    if (!form.nom || !form.client || !form.dateDebut || !form.dateFin || !form.budgetHt) {
+      setErr("Veuillez remplir les champs obligatoires (Nom, Client, Dates, Budget).");
       return;
     }
     setSubmitting(true); setErr("");
@@ -422,10 +459,7 @@ function CreateChantierForm({
       {err && <p className="text-xs text-red-500 mb-3">{err}</p>}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <label className="space-y-1">
-          <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Code *</span>
-          <input className={inputCls} value={form.code} onChange={e => set("code", e.target.value)} placeholder="CH-001" />
-        </label>
+        <CodeField value={editing?.code} />
         <label className="space-y-1">
           <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Nom *</span>
           <input className={inputCls} value={form.nom} onChange={e => set("nom", e.target.value)} placeholder="Résidence Al Manar" />

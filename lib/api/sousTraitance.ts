@@ -42,7 +42,6 @@ export interface PaiementSousTraitantDTO {
 }
 
 export interface CreateContratSousTraitantDTO {
-  reference: string;
   sousTraitantId: string;
   chantierId: string;
   objet: string;
@@ -53,7 +52,6 @@ export interface CreateContratSousTraitantDTO {
 }
 
 export interface CreatePaiementDTO {
-  reference: string;
   montant: number;
   motif: string;
 }

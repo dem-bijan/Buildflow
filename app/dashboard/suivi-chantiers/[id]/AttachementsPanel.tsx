@@ -10,6 +10,7 @@ import type { AttachementDTO } from "@/lib/api/attachements";
 import type { BpuLigneDTO } from "@/lib/api/bpu";
 import { fmt } from "@/components/functions2";
 import { Card, PrimaryActionButton, TableSkeleton } from "@/components/Functions";
+import { CodeField } from "@/components/CodeField";
 
 const STATUT_STYLES: Record<AttachementDTO["statut"], { bg: string; text: string; dot: string; label: string }> = {
   SOUMIS: { bg: "bg-amber-100 dark:bg-amber-900/30", text: "text-amber-700 dark:text-amber-400", dot: "bg-amber-600", label: "Soumis" },
@@ -32,7 +33,6 @@ export default function AttachementsPanel({
   const [error, setError] = useState<string | null>(null);
 
   const [showForm, setShowForm] = useState(false);
-  const [reference, setReference] = useState("");
   const [dateAttachement, setDateAttachement] = useState(new Date().toISOString().slice(0, 10));
   const [cumuls, setCumuls] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -67,7 +67,6 @@ export default function AttachementsPanel({
   }, [attachements]);
 
   const startCreate = () => {
-    setReference("");
     setDateAttachement(new Date().toISOString().slice(0, 10));
     setCumuls({});
     setFormError(null);
@@ -94,7 +93,7 @@ export default function AttachementsPanel({
 
     setSubmitting(true);
     try {
-      await createAttachement(chantierId, { reference, dateAttachement, lignes });
+      await createAttachement(chantierId, { dateAttachement, lignes });
       setShowForm(false);
       await load();
     } catch {
@@ -144,16 +143,7 @@ export default function AttachementsPanel({
           </h3>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <label className="text-sm space-y-1">
-              <span className="text-content-muted">Référence</span>
-              <input
-                required
-                value={reference}
-                onChange={(e) => setReference(e.target.value)}
-                className="w-full rounded-lg border border-edge-subtle px-3 py-2"
-                placeholder="ATT-2026-001"
-              />
-            </label>
+            <CodeField label="Référence" />
 
             <label className="text-sm space-y-1">
               <span className="text-content-muted">Date</span>

@@ -31,7 +31,6 @@ export interface ChantierDTO {
 
 /** Shape sent when creating a chantier (POST /api/v1/chantiers). */
 export interface CreateChantierDTO {
-    code: string;
     nom: string;
     client: string;
     adresse?: string;

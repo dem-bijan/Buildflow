@@ -12,6 +12,7 @@ import { useAuth } from "@/lib/authContext";
 import { hydrate } from "@/components/functions2";
 import type { Fournisseur, FournisseursHydrated } from "@/components/functions2";
 import { fournisseursHydrationConfig } from "@/components/functions2";
+import { CodeField } from "@/components/CodeField";
 import {
   ChartJsLoader,
   Section, Card, ChartCard,
@@ -409,8 +410,8 @@ function CreateFournisseurForm({
     setForm(prev => ({ ...prev, categorieArticles: prev.categorieArticles.filter(x => x !== c) }));
 
   const submit = async () => {
-    if (!form.code || !form.raisonSociale || !form.ice) {
-      setErr("Veuillez remplir les champs obligatoires (Code, Raison sociale, ICE).");
+    if (!form.raisonSociale || !form.ice) {
+      setErr("Veuillez remplir les champs obligatoires (Raison sociale, ICE).");
       return;
     }
     setSubmitting(true); setErr("");
@@ -441,10 +442,7 @@ function CreateFournisseurForm({
       {err && <p className="text-xs text-red-500 mb-3">{err}</p>}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <label className="space-y-1">
-          <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Code *</span>
-          <input className={inputCls} value={form.code} onChange={e => set("code", e.target.value)} placeholder="FRN-001" />
-        </label>
+        <CodeField value={editing?.code} />
         <label className="space-y-1">
           <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Raison Sociale *</span>
           <input className={inputCls} value={form.raisonSociale} onChange={e => set("raisonSociale", e.target.value)} placeholder="Lafarge Maroc" />

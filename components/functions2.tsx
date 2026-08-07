@@ -63,6 +63,10 @@ export interface TableRow {
         total: number;
     }[];
     footnotes: { label: string; value: string }[];
+    /** "L'achat a-t-il réellement servi au chantier ?" — absent on tables without operations. */
+    impactAnalytiqueChantier?: boolean;
+    /** "Y a-t-il une facture officielle à déclarer ?" — absent on tables without operations. */
+    impactComptableFiscal?: boolean;
 }
 
 export interface TableData {
@@ -107,7 +111,7 @@ const color = (i: number) => CHART_COLORS[i % CHART_COLORS.length];
 
 export type AchatStatus = "EN_COURS" | "LIVRE" | "FACTURE" | "PAYE";
 export interface LigneAchat { id: string; articleCode: string; designation: string; quantite: number; unite: string; prixUnitaire: number; total: number; bpuLigneRef?: string; }
-export interface Achat { id: string; ref: string; fournisseurNom: string; chantierNom: string; dateCommande: string; dateLivraisonPrevue: string; status: AchatStatus; ht: number; tva: number; ttc: number; lignes: LigneAchat[]; bonLivraisonRef?: string; factureRef?: string; }
+export interface Achat { id: string; ref: string; fournisseurNom: string; chantierNom: string; dateCommande: string; dateLivraisonPrevue: string; status: AchatStatus; ht: number; tva: number; ttc: number; lignes: LigneAchat[]; bonLivraisonRef?: string; factureRef?: string; impactAnalytiqueChantier?: boolean; impactComptableFiscal?: boolean; }
 
 export type FournisseurStatut = "ACTIF" | "INACTIF" | "BLACKLISTE";
 export interface Fournisseur { id: string; code: string; raisonSociale: string; ice: string; contact: string; telephone: string; email: string; ville: string; adresse: string; rib: string; banque: string; statut: FournisseurStatut; categorieArticles: string[]; totalAchatsAnnee: number; soldeImpaye: number; }
@@ -180,7 +184,7 @@ export interface FichePaie {
 
 export type TransactionCategorie = "PAIEMENT_FOURNISSEUR" | "PAIEMENT_SOUSTRAIT" | "PAIEMENT_SALAIRE" | "ENCAISSEMENT_CLIENT" | "FRAIS_GENERAUX" | "DEPOT_BANQUE" | "RETRAIT_BANQUE" | "AUTRE";
 export type TypeTransaction = "CREDIT" | "DEBIT";
-export interface Transaction { id: string; typeTransaction: TypeTransaction; montant: number; motif: string; referenceDocument?: string; createdAt: string; caisseId: string; caisseLibelle: string; }
+export interface Transaction { id: string; typeTransaction: TypeTransaction; montant: number; motif: string; referenceDocument?: string; createdAt: string; caisseId: string; caisseLibelle: string; impactAnalytiqueChantier?: boolean; impactComptableFiscal?: boolean; }
 export interface Caisse { id: string; code: string; libelle: string; chantierId: string; chantierNom: string; solde: number; seuilMinimum: number; enAlerte: boolean; }
 
 
@@ -290,6 +294,8 @@ export const achatsHydrationConfig = {
             statusBg: ACHAT_STATUS_META[a.status].bg,
             statusText: ACHAT_STATUS_META[a.status].text,
             statusDot: ACHAT_STATUS_META[a.status].dot,
+            impactAnalytiqueChantier: a.impactAnalytiqueChantier ?? false,
+            impactComptableFiscal: a.impactComptableFiscal ?? false,
             subRows: a.lignes.map(l => ({ code: l.articleCode, designation: l.designation, quantite: l.quantite, unite: l.unite, prixUnitaire: l.prixUnitaire, total: l.total })),
             footnotes: [
                 ...(a.bonLivraisonRef ? [{ label: "BL", value: a.bonLivraisonRef }] : []),
@@ -390,10 +396,26 @@ export interface StocksHydrated {
     progress: ProgressData;           // % articles au-dessus du seuil
 }
 
+/**
+ * Same rule the backend applies in StockMapper.enAlerte:
+ *
+ *   quantiteTheorique <= seuilAlerte  AND  seuilAlerte > 0
+ *
+ * The `> 0` guard matters — a threshold of 0 means "no threshold set", not
+ * "alert on everything". This used to be duplicated here without the guard,
+ * so the two disagreed for any line at zero quantity.
+ *
+ * NOTE: nothing currently writes seuilAlerte — it is created at 0 and there is
+ * no endpoint to change it — so this predicate is false for every row today.
+ */
+export function estSousSeuil(s: { quantiteDisponible: number; seuilAlerte: number }): boolean {
+    return s.seuilAlerte > 0 && s.quantiteDisponible <= s.seuilAlerte;
+}
+
 export const stocksHydrationConfig = {
     kpis: (stocks: StockArticle[]): KpiItem[] => {
         const valeurTotale = stocks.reduce((s, a) => s + a.valeurStock, 0);
-        const sousSeuil = stocks.filter(a => a.quantiteDisponible <= a.seuilAlerte);
+        const sousSeuil = stocks.filter(estSousSeuil);
         const auDessus = stocks.length - sousSeuil.length;
         const totalMvts = stocks.flatMap(a => a.mouvements ?? []).length;
         return [
@@ -409,6 +431,7 @@ export const stocksHydrationConfig = {
     },
     alertes: (stocks: StockArticle[]): DataPoint[] =>
         stocks
+            .filter(estSousSeuil)
             .map(s => ({ label: s.designation.length > 28 ? s.designation.slice(0, 26) + "…" : s.designation, ecart: s.seuilAlerte - s.quantiteDisponible }))
             .filter(s => s.ecart > 0)
             .sort((a, b) => b.ecart - a.ecart)
@@ -427,7 +450,7 @@ export const stocksHydrationConfig = {
     },
     progress: (stocks: StockArticle[]): ProgressData => {
         const total = stocks.length;
-        const ok = stocks.filter(s => s.quantiteDisponible > s.seuilAlerte).length;
+        const ok = stocks.filter(s => !estSousSeuil(s)).length;
         const paidPct = total > 0 ? Math.round((ok / total) * 100) : 0;
         const alert = total - ok;
         return { paidLabel: `OK : ${ok} articles`, pendingLabel: `Alerte : ${alert} articles`, paidPct, footerLabel: `${paidPct}% des articles au-dessus du seuil d'alerte` };

@@ -29,6 +29,7 @@ import {
   type CategorieArticleDTO
 } from "@/lib/api/categoriesArticles";
 import { fetchFournisseurs, type FournisseurDTO } from "@/lib/api/fournisseurs";
+import { CodeField } from "@/components/CodeField";
 
 
 const emptyArticleForm: ArticleForm = {
@@ -41,18 +42,6 @@ const emptyArticleForm: ArticleForm = {
   tvaRate: 20,
   fournisseursPreferentiels: [],
 };
-
-function generateCategoryCode(libelle: string) {
-  return libelle
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^A-Za-z0-9 ]/g, "")
-    .trim()
-    .split(/\s+/)
-    .map((word) => word.substring(0, 3).toUpperCase())
-    .join("")
-    .substring(0, 12);
-}
 
 export default function CataloguePage() {
   const { user } = useAuth();
@@ -120,7 +109,6 @@ export default function CataloguePage() {
         categorieId = existingCategory.id;
       } else {
         const created = await createCategorieArticle({
-          code: generateCategoryCode(form.categorie),
           libelle: form.categorie,
           parentId: null,
         });
@@ -131,7 +119,6 @@ export default function CataloguePage() {
       }
 
       const payload: CreateArticleDTO = {
-        code: form.code,
         designation: form.designation,
         description: form.description,
 
@@ -232,10 +219,7 @@ export default function CataloguePage() {
             <button type="button" onClick={() => { setShowForm(false); setEditingId(null); }} className="text-xs text-content-muted dark:text-content-muted-dark hover:text-content-primary dark:hover:text-content-primary-dark transition-colors">✕ Annuler</button>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
-            <label className="text-sm space-y-1">
-              <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Code</span>
-              <input required value={form.code ?? ""} onChange={(event) => setForm((value) => ({ ...value, code: event.target.value }))} className="w-full rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow" />
-            </label>
+            <CodeField value={editingId ? articles.find((a) => a.id === editingId)?.code : undefined} />
             <label className="text-sm space-y-1">
               <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Désignation</span>
               <input required value={form.designation ?? ""} onChange={(event) => setForm((value) => ({ ...value, designation: event.target.value }))} className="w-full rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow" />

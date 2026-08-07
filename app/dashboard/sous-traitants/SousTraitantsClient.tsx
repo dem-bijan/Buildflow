@@ -22,6 +22,7 @@ import {
   TableSkeleton,
 } from "@/components/Functions";
 import type { KpiItem } from "@/components/Functions";
+import { CodeField } from "@/components/CodeField";
 
 const STATUT_STYLES: Record<SousTraitantStatut, { bg: string; text: string; dot: string; label: string }> = {
   ACTIF: { bg: "bg-green-100 dark:bg-green-900/30", text: "text-green-700 dark:text-green-400", dot: "#16a34a", label: "Actif" },
@@ -294,8 +295,8 @@ function CreateSousTraitantForm({
     setForm(prev => ({ ...prev, [key]: val }));
 
   const submit = async () => {
-    if (!form.code || !form.raisonSociale || !form.ice || !form.specialite) {
-      setErr("Veuillez remplir les champs obligatoires (Code, Raison sociale, ICE, Spécialité).");
+    if (!form.raisonSociale || !form.ice || !form.specialite) {
+      setErr("Veuillez remplir les champs obligatoires (Raison sociale, ICE, Spécialité).");
       return;
     }
     setSubmitting(true); setErr("");
@@ -326,10 +327,7 @@ function CreateSousTraitantForm({
       {err && <p className="text-xs text-red-500 mb-3">{err}</p>}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <label className="space-y-1">
-          <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Code *</span>
-          <input className={inputCls} value={form.code} onChange={e => set("code", e.target.value)} placeholder="STR-001" />
-        </label>
+        <CodeField value={editing?.code} />
         <label className="space-y-1">
           <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Raison Sociale *</span>
           <input className={inputCls} value={form.raisonSociale} onChange={e => set("raisonSociale", e.target.value)} placeholder="Electro Bat SARL" />

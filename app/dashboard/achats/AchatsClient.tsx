@@ -1,7 +1,25 @@
 "use client";
 
 
-import { createAchat } from "@/lib/api/achats";
+import { Fragment } from "react";
+import {
+  createAchat,
+  updateAchatIndicateurs,
+  updateLignePrix,
+  validateBL,
+  validateFacture,
+  validatePaiement,
+} from "@/lib/api/achats";
+import { extractApiErrorMessage } from "@/lib/api/client";
+import { useAuth } from "@/lib/authContext";
+import {
+  IndicateurBadge,
+  IndicateurCheckbox,
+  IndicateurFilterSelect,
+  INDICATEURS,
+  matchesIndicateurFilter,
+  type IndicateurFilterValue,
+} from "@/components/IndicateursOperation";
 import { fetchFournisseurs } from "@/lib/api/fournisseurs";
 import { fetchChantiers } from "@/lib/api/chantier";
 import { useState, useEffect, useCallback, useMemo } from "react";
@@ -32,6 +50,12 @@ import {
 } from "@/components/Functions";
 
 export default function AchatsClient() {
+  const { user } = useAuth();
+  // Mirrors the @PreAuthorize on each transition, so the UI only offers what
+  // the server would actually accept.
+  const canValiderBL = user?.role === "ADMIN" || user?.role === "ACHAT" || user?.role === "PM";
+  const canValiderFinance = user?.role === "ADMIN" || user?.role === "FINANCE";
+
   const [achats, setAchats] = useState<Achat[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -58,12 +82,19 @@ export default function AchatsClient() {
 
   const [formError, setFormError] = useState<string | null>(null);
 
+  // Indicator filters + sort for the "Liste des commandes" table.
+  const [filterAnalytique, setFilterAnalytique] = useState<IndicateurFilterValue>("ALL");
+  const [filterFiscal, setFilterFiscal] = useState<IndicateurFilterValue>("ALL");
+  const [sortBy, setSortBy] = useState<"NONE" | "ANALYTIQUE" | "FISCAL">("NONE");
+
   const [form, setForm] = useState({
     ref: "",
     fournisseurId: "",
     chantierId: "",
     dateCommande: new Date().toISOString().slice(0, 10),
     dateLivraisonPrevue: new Date().toISOString().slice(0, 10),
+    impactAnalytiqueChantier: false,
+    impactComptableFiscal: false,
     lignes: [
       {
         articleId: "",
@@ -160,6 +191,8 @@ export default function AchatsClient() {
         chantierId: "",
         dateCommande: new Date().toISOString().slice(0, 10),
         dateLivraisonPrevue: new Date().toISOString().slice(0, 10),
+        impactAnalytiqueChantier: false,
+        impactComptableFiscal: false,
         lignes: [
           {
             articleId: "",
@@ -180,15 +213,101 @@ export default function AchatsClient() {
     }
   };
 
-  const filtered = useMemo(() => (
-    search
-      ? achats.filter(a =>
-        a.ref.toLowerCase().includes(search.toLowerCase()) ||
-        a.fournisseurNom.toLowerCase().includes(search.toLowerCase()) ||
-        a.chantierNom.toLowerCase().includes(search.toLowerCase())
-      )
-      : achats
-  ), [achats, search]);
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+
+    const rows = achats.filter(a => {
+      const matchesSearch = !q
+        || a.ref.toLowerCase().includes(q)
+        || a.fournisseurNom.toLowerCase().includes(q)
+        || a.chantierNom.toLowerCase().includes(q);
+
+      return matchesSearch
+        && matchesIndicateurFilter(a.impactAnalytiqueChantier ?? false, filterAnalytique)
+        && matchesIndicateurFilter(a.impactComptableFiscal ?? false, filterFiscal);
+    });
+
+    if (sortBy === "NONE") return rows;
+
+    // "Oui" first, so flagged operations surface at the top of the list.
+    const key = sortBy === "ANALYTIQUE" ? "impactAnalytiqueChantier" : "impactComptableFiscal";
+    return [...rows].sort((a, b) => Number(b[key] ?? false) - Number(a[key] ?? false));
+  }, [achats, search, filterAnalytique, filterFiscal, sortBy]);
+
+  /** Optimistic in-place toggle of one indicator on one achat. */
+  const toggleIndicateur = useCallback(
+    async (id: string, key: "impactAnalytiqueChantier" | "impactComptableFiscal", next: boolean) => {
+      setAchats(prev => prev.map(a => (a.id === id ? { ...a, [key]: next } : a)));
+      try {
+        await updateAchatIndicateurs(id, { [key]: next });
+      } catch {
+        // Roll back and tell the user, rather than leaving a lie on screen.
+        setAchats(prev => prev.map(a => (a.id === id ? { ...a, [key]: !next } : a)));
+        setError("Impossible de mettre à jour les indicateurs de cette commande.");
+      }
+    },
+    []
+  );
+
+  /** Swap in the order the server returned after a line was re-priced. */
+  const handleRepriced = useCallback((updated: Achat) => {
+    setAchats(prev => prev.map(a => (a.id === updated.id ? updated : a)));
+  }, []);
+
+  // Feedback for the lifecycle transitions. Separate from `error`, which is the
+  // "page failed to load" state and only renders on an empty list.
+  const [notice, setNotice] = useState<{ kind: "error" | "success"; text: string } | null>(null);
+  const [pendingId, setPendingId] = useState<string | null>(null);
+
+  /**
+   * Advance one order along EN_COURS → LIVRE → FACTURE → PAYE.
+   *
+   * The server enforces the sequence and the caisse balance, so failures are
+   * shown verbatim: "Cannot FACTURE an Achat that is currently 'EN_COURS'",
+   * "Insufficient funds in caisse …". Reloading afterwards keeps stock and
+   * caisse figures in step with the transition's side effects.
+   */
+  const runTransition = useCallback(
+    async (achat: Achat, step: "BL" | "FACTURE" | "PAIEMENT") => {
+      let ref: string | null = null;
+
+      if (step === "BL") {
+        ref = prompt(`Référence du bon de livraison pour ${achat.ref} :`, "");
+        if (!ref?.trim()) return;
+      } else if (step === "FACTURE") {
+        ref = prompt(`Référence de la facture fournisseur pour ${achat.ref} :`, "");
+        if (!ref?.trim()) return;
+      } else if (!confirm(
+        `Solder ${achat.ref} ?\n\nLa caisse du chantier "${achat.chantierNom}" sera débitée de ${fmt(achat.ttc)}.`
+      )) {
+        return;
+      }
+
+      setPendingId(achat.id);
+      setNotice(null);
+      try {
+        if (step === "BL") {
+          await validateBL(achat.id, ref!.trim());
+          setNotice({ kind: "success", text: `${achat.ref} livré. Le stock du chantier a été approvisionné.` });
+        } else if (step === "FACTURE") {
+          await validateFacture(achat.id, ref!.trim());
+          setNotice({ kind: "success", text: `Facture enregistrée pour ${achat.ref}.` });
+        } else {
+          await validatePaiement(achat.id);
+          setNotice({ kind: "success", text: `${achat.ref} soldé. La caisse a été débitée de ${fmt(achat.ttc)}.` });
+        }
+        await load();
+      } catch (err) {
+        setNotice({
+          kind: "error",
+          text: extractApiErrorMessage(err, `Impossible de faire progresser ${achat.ref}.`),
+        });
+      } finally {
+        setPendingId(null);
+      }
+    },
+    [load]
+  );
 
   const h = useMemo(() => hydrate<Achat, AchatsHydrated>(achats, achatsHydrationConfig), [achats]);
 
@@ -233,6 +352,26 @@ export default function AchatsClient() {
             </PrimaryActionButton>
           </div>
         </div>
+
+        {notice && (
+          <div
+            role={notice.kind === "error" ? "alert" : "status"}
+            className={`mb-6 flex items-start justify-between gap-4 rounded-xl border px-4 py-3 text-sm ${
+              notice.kind === "error"
+                ? "border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300"
+                : "border-green-200 dark:border-green-900/50 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300"
+            }`}
+          >
+            <span>{notice.text}</span>
+            <button
+              onClick={() => setNotice(null)}
+              aria-label="Fermer"
+              className="shrink-0 font-semibold opacity-70 hover:opacity-100 transition-opacity"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {showForm && (
           <form
@@ -343,6 +482,25 @@ export default function AchatsClient() {
                 />
               </label>
 
+            </div>
+
+
+            <div className="space-y-2">
+              <h3 className="text-sm font-semibold">
+                Indicateurs de facturation
+              </h3>
+              <div className="grid gap-3 md:grid-cols-2">
+                <IndicateurCheckbox
+                  variant="analytique"
+                  checked={form.impactAnalytiqueChantier}
+                  onChange={(v) => setForm(f => ({ ...f, impactAnalytiqueChantier: v }))}
+                />
+                <IndicateurCheckbox
+                  variant="fiscal"
+                  checked={form.impactComptableFiscal}
+                  onChange={(v) => setForm(f => ({ ...f, impactComptableFiscal: v }))}
+                />
+              </div>
             </div>
 
 
@@ -586,16 +744,45 @@ export default function AchatsClient() {
         {/* ── Table ───────────────────────────────────────────────────── */}
         <Section title="Liste des commandes">
           <Card>
-            <div className="px-4 pt-4 pb-3">
+            <div className="px-4 pt-4 pb-3 flex flex-col lg:flex-row lg:items-center gap-3">
               <input
                 type="text"
                 placeholder="Rechercher par référence, fournisseur, chantier…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full sm:w-80 px-4 py-2 text-sm rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark placeholder:text-content-muted/50 focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow"
+                className="w-full lg:w-80 px-4 py-2 text-sm rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark placeholder:text-content-muted/50 focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow"
               />
+              <div className="flex flex-wrap items-center gap-3">
+                <IndicateurFilterSelect variant="analytique" value={filterAnalytique} onChange={setFilterAnalytique} />
+                <IndicateurFilterSelect variant="fiscal" value={filterFiscal} onChange={setFilterFiscal} />
+                <label className="flex items-center gap-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-content-muted dark:text-content-muted-dark whitespace-nowrap">
+                    Trier
+                  </span>
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+                    className="px-2.5 py-2 text-sm rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow"
+                  >
+                    <option value="NONE">Par défaut</option>
+                    <option value="ANALYTIQUE">{INDICATEURS.analytique.label}</option>
+                    <option value="FISCAL">{INDICATEURS.fiscal.label}</option>
+                  </select>
+                </label>
+              </div>
             </div>
-            <AchatsTable achats={filtered} />
+            {error && achats.length > 0 && (
+              <p className="px-4 pb-3 text-xs text-red-500">{error}</p>
+            )}
+            <AchatsTable
+              achats={filtered}
+              onToggleIndicateur={toggleIndicateur}
+              onRepriced={handleRepriced}
+              onTransition={runTransition}
+              canValiderBL={canValiderBL}
+              canValiderFinance={canValiderFinance}
+              pendingId={pendingId}
+            />
           </Card>
         </Section>
         </ChartJsLoader>
@@ -650,14 +837,192 @@ function AchatsSkeleton() {
           <div className="px-4 pt-4 pb-3">
             <Skeleton className="h-9 w-full sm:w-80 rounded-lg" />
           </div>
-          <TableSkeleton columns={8} rows={6} />
+          <TableSkeleton columns={11} rows={6} />
         </Card>
       </Section>
     </>
   );
 }
 
-function AchatsTable({ achats }: { achats: Achat[] }) {
+/**
+ * Order lines for one purchase order, with the unit price editable in place.
+ * Re-pricing is allowed at every statut; the server answers with a warning when
+ * the order is already invoiced or paid, and that warning is shown here.
+ */
+function LignesPanel({ achat, onRepriced }: { achat: Achat; onRepriced: (updated: Achat) => void }) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [feedback, setFeedback] = useState<{ kind: "warning" | "error"; text: string } | null>(null);
+
+  const lignes = achat.lignes ?? [];
+
+  const startEdit = (ligneId: string, current: number) => {
+    setFeedback(null);
+    setEditingId(ligneId);
+    setDraft(String(current));
+  };
+
+  const save = async (ligneId: string) => {
+    const next = Number(draft);
+    if (!Number.isFinite(next) || next < 0) {
+      setFeedback({ kind: "error", text: "Le prix doit être un nombre positif." });
+      return;
+    }
+    setSaving(true);
+    try {
+      const { achat: updated, warning } = await updateLignePrix(achat.id, ligneId, next);
+      onRepriced(updated);
+      setEditingId(null);
+      setFeedback(warning ? { kind: "warning", text: warning } : null);
+    } catch (err) {
+      setFeedback({
+        kind: "error",
+        text: extractApiErrorMessage(err, "Impossible de modifier le prix de cette ligne."),
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div onClick={(e) => e.stopPropagation()}>
+      <h4 className="text-xs font-bold uppercase tracking-wider text-content-muted dark:text-content-muted-dark mb-3">
+        Lignes de commande ({lignes.length})
+      </h4>
+
+      {feedback && (
+        <p
+          role={feedback.kind === "error" ? "alert" : "status"}
+          className={`mb-3 rounded-lg border px-3 py-2 text-xs ${
+            feedback.kind === "error"
+              ? "border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300"
+              : "border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300"
+          }`}
+        >
+          {feedback.text}
+        </p>
+      )}
+
+      {lignes.length === 0 ? (
+        <p className="text-xs text-content-muted dark:text-content-muted-dark">Aucune ligne.</p>
+      ) : (
+        <table className="w-full text-xs border-collapse">
+          <thead>
+            <tr className="border-b border-edge-subtle dark:border-edge-subtle-dark">
+              {["Article", "Désignation", "Qté", "Unité", "Prix unitaire HT", "Total HT", ""].map((h, i) => (
+                <th key={i} className="text-left px-2 py-1.5 font-bold uppercase tracking-wider text-content-muted dark:text-content-muted-dark">
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {lignes.map((l) => {
+              const isEditing = editingId === l.id;
+              return (
+                <tr key={l.id} className="border-b border-edge-subtle dark:border-edge-subtle-dark">
+                  <td className="px-2 py-2 font-mono">{l.articleCode}</td>
+                  <td className="px-2 py-2">{l.designation}</td>
+                  <td className="px-2 py-2">{l.quantite}</td>
+                  <td className="px-2 py-2">{l.unite}</td>
+                  <td className="px-2 py-2">
+                    {isEditing ? (
+                      <input
+                        autoFocus
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={draft}
+                        disabled={saving}
+                        onChange={(e) => setDraft(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") save(l.id);
+                          if (e.key === "Escape") setEditingId(null);
+                        }}
+                        className="w-28 px-2 py-1 rounded border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark focus:outline-none focus:ring-2 focus:ring-accent/40"
+                      />
+                    ) : (
+                      <span>{fmt(l.prixUnitaire)}</span>
+                    )}
+                  </td>
+                  <td className="px-2 py-2 font-semibold">{fmt(l.total)}</td>
+                  <td className="px-2 py-2 whitespace-nowrap">
+                    {isEditing ? (
+                      <>
+                        <button
+                          onClick={() => save(l.id)}
+                          disabled={saving}
+                          className="text-accent font-semibold mr-3 disabled:opacity-50"
+                        >
+                          {saving ? "…" : "Enregistrer"}
+                        </button>
+                        <button onClick={() => setEditingId(null)} className="text-content-muted">
+                          Annuler
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => startEdit(l.id, l.prixUnitaire)}
+                        className="text-accent font-semibold"
+                      >
+                        Modifier le prix
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The one action available on an order at its current statut, or null when the
+ * order is settled. Mirrors the server's strictly sequential state machine, so
+ * a step can never be offered out of order.
+ */
+function nextTransition(
+  status: Achat["status"],
+  canValiderBL: boolean,
+  canValiderFinance: boolean
+): { step: "BL" | "FACTURE" | "PAIEMENT"; label: string; allowed: boolean } | null {
+  switch (status) {
+    case "EN_COURS":
+      return { step: "BL", label: "Valider le BL", allowed: canValiderBL };
+    case "LIVRE":
+      return { step: "FACTURE", label: "Valider la facture", allowed: canValiderFinance };
+    case "FACTURE":
+      return { step: "PAIEMENT", label: "Valider le paiement", allowed: canValiderFinance };
+    default:
+      return null; // PAYE — end of the cycle
+  }
+}
+
+function AchatsTable({
+  achats,
+  onToggleIndicateur,
+  onRepriced,
+  onTransition,
+  canValiderBL,
+  canValiderFinance,
+  pendingId,
+}: {
+  achats: Achat[];
+  onToggleIndicateur: (
+    id: string,
+    key: "impactAnalytiqueChantier" | "impactComptableFiscal",
+    next: boolean
+  ) => void;
+  onRepriced: (updated: Achat) => void;
+  onTransition: (achat: Achat, step: "BL" | "FACTURE" | "PAIEMENT") => void;
+  canValiderBL: boolean;
+  canValiderFinance: boolean;
+  pendingId: string | null;
+}) {
   const [expanded, setExpanded] = useState<string | null>(null);
   const hTable = useMemo(() => achatsHydrationConfig.table(achats), [achats]);
 
@@ -671,7 +1036,7 @@ function AchatsTable({ achats }: { achats: Achat[] }) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-sm border-collapse min-w-[900px]">
+      <table className="w-full text-sm border-collapse min-w-[1050px]">
         <thead>
           <tr className="border-b-2 border-edge-default dark:border-edge-default-dark">
             {["Réf", "Fournisseur", "Chantier", "Date", "HT", "TVA", "TTC", "Statut"].map(title => (
@@ -679,14 +1044,30 @@ function AchatsTable({ achats }: { achats: Achat[] }) {
                 {title}
               </th>
             ))}
+            <th
+              title={INDICATEURS.analytique.tooltip}
+              className="text-left px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-content-muted dark:text-content-muted-dark whitespace-nowrap"
+            >
+              {INDICATEURS.analytique.short}
+            </th>
+            <th
+              title={INDICATEURS.fiscal.tooltip}
+              className="text-left px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-content-muted dark:text-content-muted-dark whitespace-nowrap"
+            >
+              {INDICATEURS.fiscal.short}
+            </th>
+            <th className="text-left px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-content-muted dark:text-content-muted-dark whitespace-nowrap">
+              Actions
+            </th>
           </tr>
         </thead>
         <tbody>
           {hTable.rows.map(row => {
             const isOpen = expanded === row.id;
+            const achat = achats.find(a => a.id === row.id);
             return (
+              <Fragment key={row.id}>
               <tr
-                key={row.id}
                 onClick={() => setExpanded(isOpen ? null : row.id)}
                 className={`border-b border-edge-subtle dark:border-edge-subtle-dark cursor-pointer transition-colors duration-150 ${isOpen ? "bg-accent-50 dark:bg-accent-950/30" : "hover:bg-surface-hover dark:hover:bg-surface-hover-dark"}`}
               >
@@ -703,7 +1084,61 @@ function AchatsTable({ achats }: { achats: Achat[] }) {
                     {row.statusLabel}
                   </span>
                 </td>
+                <td className="px-3 py-3">
+                  <IndicateurBadge
+                    variant="analytique"
+                    value={row.impactAnalytiqueChantier ?? false}
+                    onToggle={() =>
+                      onToggleIndicateur(row.id, "impactAnalytiqueChantier", !(row.impactAnalytiqueChantier ?? false))
+                    }
+                  />
+                </td>
+                <td className="px-3 py-3">
+                  <IndicateurBadge
+                    variant="fiscal"
+                    value={row.impactComptableFiscal ?? false}
+                    onToggle={() =>
+                      onToggleIndicateur(row.id, "impactComptableFiscal", !(row.impactComptableFiscal ?? false))
+                    }
+                  />
+                </td>
+                <td className="px-3 py-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                  {(() => {
+                    if (!achat) return null;
+                    const next = nextTransition(achat.status, canValiderBL, canValiderFinance);
+                    if (!next) {
+                      return <span className="text-[11px] text-content-muted dark:text-content-muted-dark">Soldé</span>;
+                    }
+                    if (!next.allowed) {
+                      return (
+                        <span
+                          title="Votre rôle ne permet pas cette étape"
+                          className="text-[11px] text-content-muted dark:text-content-muted-dark"
+                        >
+                          {next.label}
+                        </span>
+                      );
+                    }
+                    return (
+                      <button
+                        onClick={() => onTransition(achat, next.step)}
+                        disabled={pendingId === achat.id}
+                        className="text-xs font-semibold text-accent hover:underline disabled:opacity-50 disabled:cursor-wait"
+                      >
+                        {pendingId === achat.id ? "…" : next.label}
+                      </button>
+                    );
+                  })()}
+                </td>
               </tr>
+              {isOpen && achat && (
+                <tr>
+                  <td colSpan={11} className="bg-surface-hover dark:bg-surface-hover-dark px-4 py-4">
+                    <LignesPanel achat={achat} onRepriced={onRepriced} />
+                  </td>
+                </tr>
+              )}
+              </Fragment>
             );
           })}
         </tbody>

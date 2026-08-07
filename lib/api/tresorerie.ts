@@ -18,6 +18,10 @@ export interface Transaction {
   caisseId: string;
   caisseLibelle: string;
   bpuLigneRef?: string;
+  /** "L'achat a-t-il réellement servi au chantier ?" */
+  impactAnalytiqueChantier: boolean;
+  /** "Y a-t-il une facture officielle à déclarer ?" */
+  impactComptableFiscal: boolean;
 }
 
 export interface Caisse {
@@ -39,6 +43,10 @@ export interface CaisseTransactionDTO {
   referenceDocument?: string;
   createdAt: string;
   bpuLigneRef?: string;
+  /** "L'achat a-t-il réellement servi au chantier ?" */
+  impactAnalytiqueChantier: boolean;
+  /** "Y a-t-il une facture officielle à déclarer ?" */
+  impactComptableFiscal: boolean;
 }
 
 export interface CaisseDTO {
@@ -54,7 +62,6 @@ export interface CaisseDTO {
 }
 
 export interface CreateCaisseDTO {
-  code: string;
   libelle: string;
   chantierId: string;
   seuilMinimum: number;
@@ -66,6 +73,16 @@ export interface CreateTransactionDTO {
   motif: string;
   referenceDocument?: string;
   bpuLigneId?: string;
+  /** "L'achat a-t-il réellement servi au chantier ?" — defaults to false server-side. */
+  impactAnalytiqueChantier?: boolean;
+  /** "Y a-t-il une facture officielle à déclarer ?" — defaults to false server-side. */
+  impactComptableFiscal?: boolean;
+}
+
+/** Partial update: omit a field to leave it untouched. */
+export interface UpdateIndicateursDTO {
+  impactAnalytiqueChantier?: boolean;
+  impactComptableFiscal?: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -119,5 +136,21 @@ export async function createTransaction(
   payload: CreateTransactionDTO
 ): Promise<CaisseTransactionDTO> {
   const { data } = await apiClient.post(`/caisses/${caisseId}/transactions`, payload);
+  return unwrapApiPayload<CaisseTransactionDTO>(data);
+}
+
+/**
+ * Toggle the operational billing indicators on an existing cash operation.
+ * PATCH /api/v1/caisses/{caisseId}/transactions/{transactionId}/indicateurs
+ */
+export async function updateTransactionIndicateurs(
+  caisseId: string,
+  transactionId: string,
+  payload: UpdateIndicateursDTO
+): Promise<CaisseTransactionDTO> {
+  const { data } = await apiClient.patch(
+    `/caisses/${caisseId}/transactions/${transactionId}/indicateurs`,
+    payload
+  );
   return unwrapApiPayload<CaisseTransactionDTO>(data);
 }

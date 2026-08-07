@@ -26,7 +26,6 @@ export interface EmployeDTO {
 
 /** Shape sent when creating / updating an employe (POST /api/v1/employes). */
 export interface CreateEmployeDTO {
-  matricule: string;
   nom: string;
   prenom: string;
   role: string;

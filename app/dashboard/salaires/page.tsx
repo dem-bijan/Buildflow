@@ -18,9 +18,9 @@ import type { SalarieDTO } from "@/lib/api/salaires";
 import { fetchEmployes, type EmployeDTO } from "@/lib/api/employes";
 import { fetchChantiers, type ChantierDTO } from "@/lib/api/chantier";
 import { fetchBpuLignes, type BpuLigneDTO } from "@/lib/api/bpu";
+import { CodeField } from "@/components/CodeField";
 
 const emptySalarieForm: CreateSalarieDTO = {
-  reference: "",
   employeId: "",
   chantierId: "",
   periode: new Date().toISOString().slice(0, 7),
@@ -157,7 +157,7 @@ export default function SalairesPage() {
             <button type="button" onClick={() => setShowForm(false)} className="text-xs text-content-muted dark:text-content-muted-dark hover:text-content-primary dark:hover:text-content-primary-dark transition-colors">✕ Annuler</button>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
-            <label className="text-sm space-y-1"><span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Référence</span><input required value={form.reference} onChange={(event) => setForm((value) => ({ ...value, reference: event.target.value }))} className="w-full rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow" placeholder="FP-2026-001" /></label>
+            <CodeField label="Référence" />
             <label className="text-sm space-y-1">
               <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">Employé</span>
               <select

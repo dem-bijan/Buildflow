@@ -21,7 +21,6 @@ export interface FournisseurDTO {
 }
 
 export interface CreateFournisseurDTO {
-  code: string;
   raisonSociale: string;
   ice: string;
   contact: string;

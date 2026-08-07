@@ -34,7 +34,6 @@ export interface ArticleForm {
 }
 /** Shape sent when creating / updating an article (POST /api/v1/articles). */
 export interface CreateArticleDTO {
-  code: string;
   designation: string;
   description?: string;
   categorieId: string;

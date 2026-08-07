@@ -20,7 +20,6 @@ export interface SousTraitantDTO {
 
 /** Shape sent when creating a sous-traitant (POST /api/v1/sous-traitants). */
 export interface CreateSousTraitantDTO {
-    code: string;
     raisonSociale: string;
     ice: string;
     specialite: string;
