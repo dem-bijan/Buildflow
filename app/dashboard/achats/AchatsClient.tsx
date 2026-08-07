@@ -2,8 +2,16 @@
 
 
 import { Fragment } from "react";
-import { createAchat, updateAchatIndicateurs, updateLignePrix } from "@/lib/api/achats";
+import {
+  createAchat,
+  updateAchatIndicateurs,
+  updateLignePrix,
+  validateBL,
+  validateFacture,
+  validatePaiement,
+} from "@/lib/api/achats";
 import { extractApiErrorMessage } from "@/lib/api/client";
+import { useAuth } from "@/lib/authContext";
 import {
   IndicateurBadge,
   IndicateurCheckbox,
@@ -42,6 +50,12 @@ import {
 } from "@/components/Functions";
 
 export default function AchatsClient() {
+  const { user } = useAuth();
+  // Mirrors the @PreAuthorize on each transition, so the UI only offers what
+  // the server would actually accept.
+  const canValiderBL = user?.role === "ADMIN" || user?.role === "ACHAT" || user?.role === "PM";
+  const canValiderFinance = user?.role === "ADMIN" || user?.role === "FINANCE";
+
   const [achats, setAchats] = useState<Achat[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -240,6 +254,61 @@ export default function AchatsClient() {
     setAchats(prev => prev.map(a => (a.id === updated.id ? updated : a)));
   }, []);
 
+  // Feedback for the lifecycle transitions. Separate from `error`, which is the
+  // "page failed to load" state and only renders on an empty list.
+  const [notice, setNotice] = useState<{ kind: "error" | "success"; text: string } | null>(null);
+  const [pendingId, setPendingId] = useState<string | null>(null);
+
+  /**
+   * Advance one order along EN_COURS → LIVRE → FACTURE → PAYE.
+   *
+   * The server enforces the sequence and the caisse balance, so failures are
+   * shown verbatim: "Cannot FACTURE an Achat that is currently 'EN_COURS'",
+   * "Insufficient funds in caisse …". Reloading afterwards keeps stock and
+   * caisse figures in step with the transition's side effects.
+   */
+  const runTransition = useCallback(
+    async (achat: Achat, step: "BL" | "FACTURE" | "PAIEMENT") => {
+      let ref: string | null = null;
+
+      if (step === "BL") {
+        ref = prompt(`Référence du bon de livraison pour ${achat.ref} :`, "");
+        if (!ref?.trim()) return;
+      } else if (step === "FACTURE") {
+        ref = prompt(`Référence de la facture fournisseur pour ${achat.ref} :`, "");
+        if (!ref?.trim()) return;
+      } else if (!confirm(
+        `Solder ${achat.ref} ?\n\nLa caisse du chantier "${achat.chantierNom}" sera débitée de ${fmt(achat.ttc)}.`
+      )) {
+        return;
+      }
+
+      setPendingId(achat.id);
+      setNotice(null);
+      try {
+        if (step === "BL") {
+          await validateBL(achat.id, ref!.trim());
+          setNotice({ kind: "success", text: `${achat.ref} livré. Le stock du chantier a été approvisionné.` });
+        } else if (step === "FACTURE") {
+          await validateFacture(achat.id, ref!.trim());
+          setNotice({ kind: "success", text: `Facture enregistrée pour ${achat.ref}.` });
+        } else {
+          await validatePaiement(achat.id);
+          setNotice({ kind: "success", text: `${achat.ref} soldé. La caisse a été débitée de ${fmt(achat.ttc)}.` });
+        }
+        await load();
+      } catch (err) {
+        setNotice({
+          kind: "error",
+          text: extractApiErrorMessage(err, `Impossible de faire progresser ${achat.ref}.`),
+        });
+      } finally {
+        setPendingId(null);
+      }
+    },
+    [load]
+  );
+
   const h = useMemo(() => hydrate<Achat, AchatsHydrated>(achats, achatsHydrationConfig), [achats]);
 
   if (error && achats.length === 0) {
@@ -283,6 +352,26 @@ export default function AchatsClient() {
             </PrimaryActionButton>
           </div>
         </div>
+
+        {notice && (
+          <div
+            role={notice.kind === "error" ? "alert" : "status"}
+            className={`mb-6 flex items-start justify-between gap-4 rounded-xl border px-4 py-3 text-sm ${
+              notice.kind === "error"
+                ? "border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300"
+                : "border-green-200 dark:border-green-900/50 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300"
+            }`}
+          >
+            <span>{notice.text}</span>
+            <button
+              onClick={() => setNotice(null)}
+              aria-label="Fermer"
+              className="shrink-0 font-semibold opacity-70 hover:opacity-100 transition-opacity"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {showForm && (
           <form
@@ -685,7 +774,15 @@ export default function AchatsClient() {
             {error && achats.length > 0 && (
               <p className="px-4 pb-3 text-xs text-red-500">{error}</p>
             )}
-            <AchatsTable achats={filtered} onToggleIndicateur={toggleIndicateur} onRepriced={handleRepriced} />
+            <AchatsTable
+              achats={filtered}
+              onToggleIndicateur={toggleIndicateur}
+              onRepriced={handleRepriced}
+              onTransition={runTransition}
+              canValiderBL={canValiderBL}
+              canValiderFinance={canValiderFinance}
+              pendingId={pendingId}
+            />
           </Card>
         </Section>
         </ChartJsLoader>
@@ -740,7 +837,7 @@ function AchatsSkeleton() {
           <div className="px-4 pt-4 pb-3">
             <Skeleton className="h-9 w-full sm:w-80 rounded-lg" />
           </div>
-          <TableSkeleton columns={10} rows={6} />
+          <TableSkeleton columns={11} rows={6} />
         </Card>
       </Section>
     </>
@@ -883,10 +980,36 @@ function LignesPanel({ achat, onRepriced }: { achat: Achat; onRepriced: (updated
   );
 }
 
+/**
+ * The one action available on an order at its current statut, or null when the
+ * order is settled. Mirrors the server's strictly sequential state machine, so
+ * a step can never be offered out of order.
+ */
+function nextTransition(
+  status: Achat["status"],
+  canValiderBL: boolean,
+  canValiderFinance: boolean
+): { step: "BL" | "FACTURE" | "PAIEMENT"; label: string; allowed: boolean } | null {
+  switch (status) {
+    case "EN_COURS":
+      return { step: "BL", label: "Valider le BL", allowed: canValiderBL };
+    case "LIVRE":
+      return { step: "FACTURE", label: "Valider la facture", allowed: canValiderFinance };
+    case "FACTURE":
+      return { step: "PAIEMENT", label: "Valider le paiement", allowed: canValiderFinance };
+    default:
+      return null; // PAYE — end of the cycle
+  }
+}
+
 function AchatsTable({
   achats,
   onToggleIndicateur,
   onRepriced,
+  onTransition,
+  canValiderBL,
+  canValiderFinance,
+  pendingId,
 }: {
   achats: Achat[];
   onToggleIndicateur: (
@@ -895,6 +1018,10 @@ function AchatsTable({
     next: boolean
   ) => void;
   onRepriced: (updated: Achat) => void;
+  onTransition: (achat: Achat, step: "BL" | "FACTURE" | "PAIEMENT") => void;
+  canValiderBL: boolean;
+  canValiderFinance: boolean;
+  pendingId: string | null;
 }) {
   const [expanded, setExpanded] = useState<string | null>(null);
   const hTable = useMemo(() => achatsHydrationConfig.table(achats), [achats]);
@@ -928,6 +1055,9 @@ function AchatsTable({
               className="text-left px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-content-muted dark:text-content-muted-dark whitespace-nowrap"
             >
               {INDICATEURS.fiscal.short}
+            </th>
+            <th className="text-left px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-content-muted dark:text-content-muted-dark whitespace-nowrap">
+              Actions
             </th>
           </tr>
         </thead>
@@ -972,10 +1102,38 @@ function AchatsTable({
                     }
                   />
                 </td>
+                <td className="px-3 py-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                  {(() => {
+                    if (!achat) return null;
+                    const next = nextTransition(achat.status, canValiderBL, canValiderFinance);
+                    if (!next) {
+                      return <span className="text-[11px] text-content-muted dark:text-content-muted-dark">Soldé</span>;
+                    }
+                    if (!next.allowed) {
+                      return (
+                        <span
+                          title="Votre rôle ne permet pas cette étape"
+                          className="text-[11px] text-content-muted dark:text-content-muted-dark"
+                        >
+                          {next.label}
+                        </span>
+                      );
+                    }
+                    return (
+                      <button
+                        onClick={() => onTransition(achat, next.step)}
+                        disabled={pendingId === achat.id}
+                        className="text-xs font-semibold text-accent hover:underline disabled:opacity-50 disabled:cursor-wait"
+                      >
+                        {pendingId === achat.id ? "…" : next.label}
+                      </button>
+                    );
+                  })()}
+                </td>
               </tr>
               {isOpen && achat && (
                 <tr>
-                  <td colSpan={10} className="bg-surface-hover dark:bg-surface-hover-dark px-4 py-4">
+                  <td colSpan={11} className="bg-surface-hover dark:bg-surface-hover-dark px-4 py-4">
                     <LignesPanel achat={achat} onRepriced={onRepriced} />
                   </td>
                 </tr>

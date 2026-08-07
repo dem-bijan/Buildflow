@@ -39,6 +39,49 @@ export async function createAchat(
   return unwrapApiPayload<Achat>(data);
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Lifecycle transitions — strictly sequential:
+//   EN_COURS --[BL]--> LIVRE --[facture]--> FACTURE --[paiement]--> PAYE
+// Skipping a step returns 422; so does paying with an underfunded caisse.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Confirm delivery. Provisions the chantier's stock (one ENTREE per line,
+ * traced on the order ref).
+ * PATCH /api/v1/achats/{id}/validate-bl — roles ADMIN, ACHAT, PM
+ */
+export async function validateBL(id: string, bonLivraisonRef: string): Promise<Achat> {
+  const { data } = await apiClient.patch<unknown>(
+    `/achats/${id}/validate-bl`,
+    null,
+    { params: { bonLivraisonRef } }
+  );
+  return unwrapApiPayload<Achat>(data);
+}
+
+/**
+ * Record the supplier invoice. No side effect.
+ * PATCH /api/v1/achats/{id}/validate-facture — roles ADMIN, FINANCE
+ */
+export async function validateFacture(id: string, factureRef: string): Promise<Achat> {
+  const { data } = await apiClient.patch<unknown>(
+    `/achats/${id}/validate-facture`,
+    null,
+    { params: { factureRef } }
+  );
+  return unwrapApiPayload<Achat>(data);
+}
+
+/**
+ * Settle the order. Debits the chantier's caisse by the TTC, and fails with
+ * 422 "Insufficient funds" if the balance is short.
+ * PATCH /api/v1/achats/{id}/validate-paiement — roles ADMIN, FINANCE
+ */
+export async function validatePaiement(id: string): Promise<Achat> {
+  const { data } = await apiClient.patch<unknown>(`/achats/${id}/validate-paiement`);
+  return unwrapApiPayload<Achat>(data);
+}
+
 /**
  * Toggle the operational billing indicators on an existing achat.
  * PATCH /api/v1/achats/{id}/indicateurs

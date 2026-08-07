@@ -396,10 +396,26 @@ export interface StocksHydrated {
     progress: ProgressData;           // % articles au-dessus du seuil
 }
 
+/**
+ * Same rule the backend applies in StockMapper.enAlerte:
+ *
+ *   quantiteTheorique <= seuilAlerte  AND  seuilAlerte > 0
+ *
+ * The `> 0` guard matters — a threshold of 0 means "no threshold set", not
+ * "alert on everything". This used to be duplicated here without the guard,
+ * so the two disagreed for any line at zero quantity.
+ *
+ * NOTE: nothing currently writes seuilAlerte — it is created at 0 and there is
+ * no endpoint to change it — so this predicate is false for every row today.
+ */
+export function estSousSeuil(s: { quantiteDisponible: number; seuilAlerte: number }): boolean {
+    return s.seuilAlerte > 0 && s.quantiteDisponible <= s.seuilAlerte;
+}
+
 export const stocksHydrationConfig = {
     kpis: (stocks: StockArticle[]): KpiItem[] => {
         const valeurTotale = stocks.reduce((s, a) => s + a.valeurStock, 0);
-        const sousSeuil = stocks.filter(a => a.quantiteDisponible <= a.seuilAlerte);
+        const sousSeuil = stocks.filter(estSousSeuil);
         const auDessus = stocks.length - sousSeuil.length;
         const totalMvts = stocks.flatMap(a => a.mouvements ?? []).length;
         return [
@@ -415,6 +431,7 @@ export const stocksHydrationConfig = {
     },
     alertes: (stocks: StockArticle[]): DataPoint[] =>
         stocks
+            .filter(estSousSeuil)
             .map(s => ({ label: s.designation.length > 28 ? s.designation.slice(0, 26) + "…" : s.designation, ecart: s.seuilAlerte - s.quantiteDisponible }))
             .filter(s => s.ecart > 0)
             .sort((a, b) => b.ecart - a.ecart)
@@ -433,7 +450,7 @@ export const stocksHydrationConfig = {
     },
     progress: (stocks: StockArticle[]): ProgressData => {
         const total = stocks.length;
-        const ok = stocks.filter(s => s.quantiteDisponible > s.seuilAlerte).length;
+        const ok = stocks.filter(s => !estSousSeuil(s)).length;
         const paidPct = total > 0 ? Math.round((ok / total) * 100) : 0;
         const alert = total - ok;
         return { paidLabel: `OK : ${ok} articles`, pendingLabel: `Alerte : ${alert} articles`, paidPct, footerLabel: `${paidPct}% des articles au-dessus du seuil d'alerte` };
