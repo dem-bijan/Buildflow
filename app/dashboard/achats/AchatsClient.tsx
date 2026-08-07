@@ -1,7 +1,15 @@
 "use client";
 
 
-import { createAchat } from "@/lib/api/achats";
+import { createAchat, updateAchatIndicateurs } from "@/lib/api/achats";
+import {
+  IndicateurBadge,
+  IndicateurCheckbox,
+  IndicateurFilterSelect,
+  INDICATEURS,
+  matchesIndicateurFilter,
+  type IndicateurFilterValue,
+} from "@/components/IndicateursOperation";
 import { fetchFournisseurs } from "@/lib/api/fournisseurs";
 import { fetchChantiers } from "@/lib/api/chantier";
 import { useState, useEffect, useCallback, useMemo } from "react";
@@ -58,12 +66,19 @@ export default function AchatsClient() {
 
   const [formError, setFormError] = useState<string | null>(null);
 
+  // Indicator filters + sort for the "Liste des commandes" table.
+  const [filterAnalytique, setFilterAnalytique] = useState<IndicateurFilterValue>("ALL");
+  const [filterFiscal, setFilterFiscal] = useState<IndicateurFilterValue>("ALL");
+  const [sortBy, setSortBy] = useState<"NONE" | "ANALYTIQUE" | "FISCAL">("NONE");
+
   const [form, setForm] = useState({
     ref: "",
     fournisseurId: "",
     chantierId: "",
     dateCommande: new Date().toISOString().slice(0, 10),
     dateLivraisonPrevue: new Date().toISOString().slice(0, 10),
+    impactAnalytiqueChantier: false,
+    impactComptableFiscal: false,
     lignes: [
       {
         articleId: "",
@@ -160,6 +175,8 @@ export default function AchatsClient() {
         chantierId: "",
         dateCommande: new Date().toISOString().slice(0, 10),
         dateLivraisonPrevue: new Date().toISOString().slice(0, 10),
+        impactAnalytiqueChantier: false,
+        impactComptableFiscal: false,
         lignes: [
           {
             articleId: "",
@@ -180,15 +197,41 @@ export default function AchatsClient() {
     }
   };
 
-  const filtered = useMemo(() => (
-    search
-      ? achats.filter(a =>
-        a.ref.toLowerCase().includes(search.toLowerCase()) ||
-        a.fournisseurNom.toLowerCase().includes(search.toLowerCase()) ||
-        a.chantierNom.toLowerCase().includes(search.toLowerCase())
-      )
-      : achats
-  ), [achats, search]);
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+
+    const rows = achats.filter(a => {
+      const matchesSearch = !q
+        || a.ref.toLowerCase().includes(q)
+        || a.fournisseurNom.toLowerCase().includes(q)
+        || a.chantierNom.toLowerCase().includes(q);
+
+      return matchesSearch
+        && matchesIndicateurFilter(a.impactAnalytiqueChantier ?? false, filterAnalytique)
+        && matchesIndicateurFilter(a.impactComptableFiscal ?? false, filterFiscal);
+    });
+
+    if (sortBy === "NONE") return rows;
+
+    // "Oui" first, so flagged operations surface at the top of the list.
+    const key = sortBy === "ANALYTIQUE" ? "impactAnalytiqueChantier" : "impactComptableFiscal";
+    return [...rows].sort((a, b) => Number(b[key] ?? false) - Number(a[key] ?? false));
+  }, [achats, search, filterAnalytique, filterFiscal, sortBy]);
+
+  /** Optimistic in-place toggle of one indicator on one achat. */
+  const toggleIndicateur = useCallback(
+    async (id: string, key: "impactAnalytiqueChantier" | "impactComptableFiscal", next: boolean) => {
+      setAchats(prev => prev.map(a => (a.id === id ? { ...a, [key]: next } : a)));
+      try {
+        await updateAchatIndicateurs(id, { [key]: next });
+      } catch {
+        // Roll back and tell the user, rather than leaving a lie on screen.
+        setAchats(prev => prev.map(a => (a.id === id ? { ...a, [key]: !next } : a)));
+        setError("Impossible de mettre à jour les indicateurs de cette commande.");
+      }
+    },
+    []
+  );
 
   const h = useMemo(() => hydrate<Achat, AchatsHydrated>(achats, achatsHydrationConfig), [achats]);
 
@@ -343,6 +386,25 @@ export default function AchatsClient() {
                 />
               </label>
 
+            </div>
+
+
+            <div className="space-y-2">
+              <h3 className="text-sm font-semibold">
+                Indicateurs de facturation
+              </h3>
+              <div className="grid gap-3 md:grid-cols-2">
+                <IndicateurCheckbox
+                  variant="analytique"
+                  checked={form.impactAnalytiqueChantier}
+                  onChange={(v) => setForm(f => ({ ...f, impactAnalytiqueChantier: v }))}
+                />
+                <IndicateurCheckbox
+                  variant="fiscal"
+                  checked={form.impactComptableFiscal}
+                  onChange={(v) => setForm(f => ({ ...f, impactComptableFiscal: v }))}
+                />
+              </div>
             </div>
 
 
@@ -586,16 +648,37 @@ export default function AchatsClient() {
         {/* ── Table ───────────────────────────────────────────────────── */}
         <Section title="Liste des commandes">
           <Card>
-            <div className="px-4 pt-4 pb-3">
+            <div className="px-4 pt-4 pb-3 flex flex-col lg:flex-row lg:items-center gap-3">
               <input
                 type="text"
                 placeholder="Rechercher par référence, fournisseur, chantier…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full sm:w-80 px-4 py-2 text-sm rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark placeholder:text-content-muted/50 focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow"
+                className="w-full lg:w-80 px-4 py-2 text-sm rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark placeholder:text-content-muted/50 focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow"
               />
+              <div className="flex flex-wrap items-center gap-3">
+                <IndicateurFilterSelect variant="analytique" value={filterAnalytique} onChange={setFilterAnalytique} />
+                <IndicateurFilterSelect variant="fiscal" value={filterFiscal} onChange={setFilterFiscal} />
+                <label className="flex items-center gap-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-content-muted dark:text-content-muted-dark whitespace-nowrap">
+                    Trier
+                  </span>
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+                    className="px-2.5 py-2 text-sm rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow"
+                  >
+                    <option value="NONE">Par défaut</option>
+                    <option value="ANALYTIQUE">{INDICATEURS.analytique.label}</option>
+                    <option value="FISCAL">{INDICATEURS.fiscal.label}</option>
+                  </select>
+                </label>
+              </div>
             </div>
-            <AchatsTable achats={filtered} />
+            {error && achats.length > 0 && (
+              <p className="px-4 pb-3 text-xs text-red-500">{error}</p>
+            )}
+            <AchatsTable achats={filtered} onToggleIndicateur={toggleIndicateur} />
           </Card>
         </Section>
         </ChartJsLoader>
@@ -650,14 +733,24 @@ function AchatsSkeleton() {
           <div className="px-4 pt-4 pb-3">
             <Skeleton className="h-9 w-full sm:w-80 rounded-lg" />
           </div>
-          <TableSkeleton columns={8} rows={6} />
+          <TableSkeleton columns={10} rows={6} />
         </Card>
       </Section>
     </>
   );
 }
 
-function AchatsTable({ achats }: { achats: Achat[] }) {
+function AchatsTable({
+  achats,
+  onToggleIndicateur,
+}: {
+  achats: Achat[];
+  onToggleIndicateur: (
+    id: string,
+    key: "impactAnalytiqueChantier" | "impactComptableFiscal",
+    next: boolean
+  ) => void;
+}) {
   const [expanded, setExpanded] = useState<string | null>(null);
   const hTable = useMemo(() => achatsHydrationConfig.table(achats), [achats]);
 
@@ -671,7 +764,7 @@ function AchatsTable({ achats }: { achats: Achat[] }) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-sm border-collapse min-w-[900px]">
+      <table className="w-full text-sm border-collapse min-w-[1050px]">
         <thead>
           <tr className="border-b-2 border-edge-default dark:border-edge-default-dark">
             {["Réf", "Fournisseur", "Chantier", "Date", "HT", "TVA", "TTC", "Statut"].map(title => (
@@ -679,6 +772,18 @@ function AchatsTable({ achats }: { achats: Achat[] }) {
                 {title}
               </th>
             ))}
+            <th
+              title={INDICATEURS.analytique.tooltip}
+              className="text-left px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-content-muted dark:text-content-muted-dark whitespace-nowrap"
+            >
+              {INDICATEURS.analytique.short}
+            </th>
+            <th
+              title={INDICATEURS.fiscal.tooltip}
+              className="text-left px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-content-muted dark:text-content-muted-dark whitespace-nowrap"
+            >
+              {INDICATEURS.fiscal.short}
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -702,6 +807,24 @@ function AchatsTable({ achats }: { achats: Achat[] }) {
                     <span className="w-1.5 h-1.5 rounded-full" style={{ background: row.statusDot }} />
                     {row.statusLabel}
                   </span>
+                </td>
+                <td className="px-3 py-3">
+                  <IndicateurBadge
+                    variant="analytique"
+                    value={row.impactAnalytiqueChantier ?? false}
+                    onToggle={() =>
+                      onToggleIndicateur(row.id, "impactAnalytiqueChantier", !(row.impactAnalytiqueChantier ?? false))
+                    }
+                  />
+                </td>
+                <td className="px-3 py-3">
+                  <IndicateurBadge
+                    variant="fiscal"
+                    value={row.impactComptableFiscal ?? false}
+                    onToggle={() =>
+                      onToggleIndicateur(row.id, "impactComptableFiscal", !(row.impactComptableFiscal ?? false))
+                    }
+                  />
                 </td>
               </tr>
             );

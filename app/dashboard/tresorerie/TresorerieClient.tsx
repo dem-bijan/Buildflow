@@ -9,10 +9,19 @@ import {
   fetchTransactions,
   createCaisse,
   createTransaction,
+  updateTransactionIndicateurs,
   type CreateCaisseDTO,
   type CreateTransactionDTO,
   type TypeTransaction,
 } from "@/lib/api/tresorerie";
+import {
+  IndicateurBadge,
+  IndicateurCheckbox,
+  IndicateurFilterSelect,
+  INDICATEURS,
+  matchesIndicateurFilter,
+  type IndicateurFilterValue,
+} from "@/components/IndicateursOperation";
 import { fetchChantiers, type ChantierDTO } from "@/lib/api/chantier";
 import { fetchBpuLignes, type BpuLigneDTO } from "@/lib/api/bpu";
 import {
@@ -36,6 +45,10 @@ export default function TresorerieClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+
+  // Indicator filters, applied to the transactions listed under each caisse.
+  const [filterAnalytique, setFilterAnalytique] = useState<IndicateurFilterValue>("ALL");
+  const [filterFiscal, setFilterFiscal] = useState<IndicateurFilterValue>("ALL");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -66,6 +79,34 @@ export default function TresorerieClient() {
 
   const h = useMemo(() => hydrate<Transaction, TresorerieHydrated>(transactions, tresorerieHydrationConfig), [transactions]);
   const soldeCaisses = useMemo(() => hydratedSoldeCaisses(caisses), [caisses]);
+
+  // Charts and KPIs stay on the full dataset; only the listed operations are filtered.
+  const filteredTransactions = useMemo(
+    () => transactions.filter(t =>
+      matchesIndicateurFilter(t.impactAnalytiqueChantier ?? false, filterAnalytique)
+      && matchesIndicateurFilter(t.impactComptableFiscal ?? false, filterFiscal)
+    ),
+    [transactions, filterAnalytique, filterFiscal]
+  );
+
+  /** Optimistic in-place toggle of one indicator on one cash operation. */
+  const toggleIndicateur = useCallback(
+    async (
+      caisseId: string,
+      transactionId: string,
+      key: "impactAnalytiqueChantier" | "impactComptableFiscal",
+      next: boolean
+    ) => {
+      setTransactions(prev => prev.map(t => (t.id === transactionId ? { ...t, [key]: next } : t)));
+      try {
+        await updateTransactionIndicateurs(caisseId, transactionId, { [key]: next });
+      } catch {
+        setTransactions(prev => prev.map(t => (t.id === transactionId ? { ...t, [key]: !next } : t)));
+        setError("Impossible de mettre à jour les indicateurs de cette opération.");
+      }
+    },
+    []
+  );
 
   if (error && transactions.length === 0 && caisses.length === 0) {
     return (
@@ -150,7 +191,22 @@ export default function TresorerieClient() {
 
         <Section title="Liste des caisses">
           <Card>
-            <CaissesTable caisses={caisses} transactions={transactions} onChanged={load} />
+            <div className="px-4 pt-4 pb-3 flex flex-wrap items-center gap-3">
+              <span className="text-xs font-semibold text-content-muted dark:text-content-muted-dark">
+                Filtrer les opérations :
+              </span>
+              <IndicateurFilterSelect variant="analytique" value={filterAnalytique} onChange={setFilterAnalytique} />
+              <IndicateurFilterSelect variant="fiscal" value={filterFiscal} onChange={setFilterFiscal} />
+            </div>
+            {error && (caisses.length > 0 || transactions.length > 0) && (
+              <p className="px-4 pb-3 text-xs text-red-500">{error}</p>
+            )}
+            <CaissesTable
+              caisses={caisses}
+              transactions={filteredTransactions}
+              onChanged={load}
+              onToggleIndicateur={toggleIndicateur}
+            />
           </Card>
         </Section>
 
@@ -213,10 +269,17 @@ function CaissesTable({
   caisses,
   transactions,
   onChanged,
+  onToggleIndicateur,
 }: {
   caisses: Caisse[];
   transactions: Transaction[];
   onChanged: () => void;
+  onToggleIndicateur: (
+    caisseId: string,
+    transactionId: string,
+    key: "impactAnalytiqueChantier" | "impactComptableFiscal",
+    next: boolean
+  ) => void;
 }) {
   const [expanded, setExpanded] = useState<string | null>(null);
 
@@ -270,7 +333,13 @@ function CaissesTable({
                 {isOpen && (
                   <tr>
                     <td colSpan={6} className="bg-surface-hover dark:bg-surface-hover-dark px-4 py-4">
-                      <TransactionsPanel caisseId={c.id} chantierId={c.chantierId} transactions={tx} onCreated={onChanged} />
+                      <TransactionsPanel
+                        caisseId={c.id}
+                        chantierId={c.chantierId}
+                        transactions={tx}
+                        onCreated={onChanged}
+                        onToggleIndicateur={onToggleIndicateur}
+                      />
                     </td>
                   </tr>
                 )}
@@ -289,11 +358,18 @@ function TransactionsPanel({
   chantierId,
   transactions,
   onCreated,
+  onToggleIndicateur,
 }: {
   caisseId: string;
   chantierId: string;
   transactions: Transaction[];
   onCreated: () => void;
+  onToggleIndicateur: (
+    caisseId: string,
+    transactionId: string,
+    key: "impactAnalytiqueChantier" | "impactComptableFiscal",
+    next: boolean
+  ) => void;
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [typeTransaction, setTypeTransaction] = useState<TypeTransaction>("CREDIT");
@@ -301,6 +377,8 @@ function TransactionsPanel({
   const [motif, setMotif] = useState("");
   const [referenceDocument, setReferenceDocument] = useState("");
   const [bpuLigneId, setBpuLigneId] = useState("");
+  const [impactAnalytiqueChantier, setImpactAnalytiqueChantier] = useState(false);
+  const [impactComptableFiscal, setImpactComptableFiscal] = useState(false);
   const [bpuLignes, setBpuLignes] = useState<BpuLigneDTO[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState("");
@@ -330,12 +408,16 @@ function TransactionsPanel({
         motif,
         ...(referenceDocument ? { referenceDocument } : {}),
         ...(typeTransaction === "DEBIT" && bpuLigneId ? { bpuLigneId } : {}),
+        impactAnalytiqueChantier,
+        impactComptableFiscal,
       };
       await createTransaction(caisseId, payload);
       setMontant("");
       setMotif("");
       setReferenceDocument("");
       setBpuLigneId("");
+      setImpactAnalytiqueChantier(false);
+      setImpactComptableFiscal(false);
       setShowAdd(false);
       onCreated();
     } catch {
@@ -381,6 +463,18 @@ function TransactionsPanel({
               </select>
             </div>
           )}
+          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <IndicateurCheckbox
+              variant="analytique"
+              checked={impactAnalytiqueChantier}
+              onChange={setImpactAnalytiqueChantier}
+            />
+            <IndicateurCheckbox
+              variant="fiscal"
+              checked={impactComptableFiscal}
+              onChange={setImpactComptableFiscal}
+            />
+          </div>
           <div className="flex justify-end mt-3">
             <button
               onClick={submit}
@@ -404,6 +498,12 @@ function TransactionsPanel({
                   {h}
                 </th>
               ))}
+              <th title={INDICATEURS.analytique.tooltip} className="text-left px-2 py-1.5 font-bold uppercase tracking-wider text-content-muted dark:text-content-muted-dark">
+                {INDICATEURS.analytique.short}
+              </th>
+              <th title={INDICATEURS.fiscal.tooltip} className="text-left px-2 py-1.5 font-bold uppercase tracking-wider text-content-muted dark:text-content-muted-dark">
+                {INDICATEURS.fiscal.short}
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -418,6 +518,24 @@ function TransactionsPanel({
                 <td className="px-2 py-2">{t.motif}</td>
                 <td className="px-2 py-2 font-mono">{t.referenceDocument ?? "—"}</td>
                 <td className="px-2 py-2">{new Date(t.createdAt).toLocaleDateString("fr-MA")}</td>
+                <td className="px-2 py-2">
+                  <IndicateurBadge
+                    variant="analytique"
+                    value={t.impactAnalytiqueChantier ?? false}
+                    onToggle={() =>
+                      onToggleIndicateur(caisseId, t.id, "impactAnalytiqueChantier", !(t.impactAnalytiqueChantier ?? false))
+                    }
+                  />
+                </td>
+                <td className="px-2 py-2">
+                  <IndicateurBadge
+                    variant="fiscal"
+                    value={t.impactComptableFiscal ?? false}
+                    onToggle={() =>
+                      onToggleIndicateur(caisseId, t.id, "impactComptableFiscal", !(t.impactComptableFiscal ?? false))
+                    }
+                  />
+                </td>
               </tr>
             ))}
           </tbody>

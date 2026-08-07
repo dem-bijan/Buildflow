@@ -16,6 +16,16 @@ export interface CreateAchatDTO {
   dateCommande: string;
   dateLivraisonPrevue: string;
   lignes: CreateLigneAchatDTO[];
+  /** "L'achat a-t-il réellement servi au chantier ?" — defaults to false server-side. */
+  impactAnalytiqueChantier?: boolean;
+  /** "Y a-t-il une facture officielle à déclarer ?" — defaults to false server-side. */
+  impactComptableFiscal?: boolean;
+}
+
+/** Partial update: omit a field to leave it untouched. */
+export interface UpdateIndicateursDTO {
+  impactAnalytiqueChantier?: boolean;
+  impactComptableFiscal?: boolean;
 }
 
 export async function fetchAchats(): Promise<Achat[]> {
@@ -27,5 +37,17 @@ export async function createAchat(
   payload: CreateAchatDTO
 ): Promise<Achat> {
   const { data } = await apiClient.post<unknown>("/achats", payload);
+  return unwrapApiPayload<Achat>(data);
+}
+
+/**
+ * Toggle the operational billing indicators on an existing achat.
+ * PATCH /api/v1/achats/{id}/indicateurs
+ */
+export async function updateAchatIndicateurs(
+  id: string,
+  payload: UpdateIndicateursDTO
+): Promise<Achat> {
+  const { data } = await apiClient.patch<unknown>(`/achats/${id}/indicateurs`, payload);
   return unwrapApiPayload<Achat>(data);
 }

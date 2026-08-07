@@ -63,6 +63,10 @@ export interface TableRow {
         total: number;
     }[];
     footnotes: { label: string; value: string }[];
+    /** "L'achat a-t-il réellement servi au chantier ?" — absent on tables without operations. */
+    impactAnalytiqueChantier?: boolean;
+    /** "Y a-t-il une facture officielle à déclarer ?" — absent on tables without operations. */
+    impactComptableFiscal?: boolean;
 }
 
 export interface TableData {
@@ -107,7 +111,7 @@ const color = (i: number) => CHART_COLORS[i % CHART_COLORS.length];
 
 export type AchatStatus = "EN_COURS" | "LIVRE" | "FACTURE" | "PAYE";
 export interface LigneAchat { id: string; articleCode: string; designation: string; quantite: number; unite: string; prixUnitaire: number; total: number; bpuLigneRef?: string; }
-export interface Achat { id: string; ref: string; fournisseurNom: string; chantierNom: string; dateCommande: string; dateLivraisonPrevue: string; status: AchatStatus; ht: number; tva: number; ttc: number; lignes: LigneAchat[]; bonLivraisonRef?: string; factureRef?: string; }
+export interface Achat { id: string; ref: string; fournisseurNom: string; chantierNom: string; dateCommande: string; dateLivraisonPrevue: string; status: AchatStatus; ht: number; tva: number; ttc: number; lignes: LigneAchat[]; bonLivraisonRef?: string; factureRef?: string; impactAnalytiqueChantier?: boolean; impactComptableFiscal?: boolean; }
 
 export type FournisseurStatut = "ACTIF" | "INACTIF" | "BLACKLISTE";
 export interface Fournisseur { id: string; code: string; raisonSociale: string; ice: string; contact: string; telephone: string; email: string; ville: string; adresse: string; rib: string; banque: string; statut: FournisseurStatut; categorieArticles: string[]; totalAchatsAnnee: number; soldeImpaye: number; }
@@ -180,7 +184,7 @@ export interface FichePaie {
 
 export type TransactionCategorie = "PAIEMENT_FOURNISSEUR" | "PAIEMENT_SOUSTRAIT" | "PAIEMENT_SALAIRE" | "ENCAISSEMENT_CLIENT" | "FRAIS_GENERAUX" | "DEPOT_BANQUE" | "RETRAIT_BANQUE" | "AUTRE";
 export type TypeTransaction = "CREDIT" | "DEBIT";
-export interface Transaction { id: string; typeTransaction: TypeTransaction; montant: number; motif: string; referenceDocument?: string; createdAt: string; caisseId: string; caisseLibelle: string; }
+export interface Transaction { id: string; typeTransaction: TypeTransaction; montant: number; motif: string; referenceDocument?: string; createdAt: string; caisseId: string; caisseLibelle: string; impactAnalytiqueChantier?: boolean; impactComptableFiscal?: boolean; }
 export interface Caisse { id: string; code: string; libelle: string; chantierId: string; chantierNom: string; solde: number; seuilMinimum: number; enAlerte: boolean; }
 
 
@@ -290,6 +294,8 @@ export const achatsHydrationConfig = {
             statusBg: ACHAT_STATUS_META[a.status].bg,
             statusText: ACHAT_STATUS_META[a.status].text,
             statusDot: ACHAT_STATUS_META[a.status].dot,
+            impactAnalytiqueChantier: a.impactAnalytiqueChantier ?? false,
+            impactComptableFiscal: a.impactComptableFiscal ?? false,
             subRows: a.lignes.map(l => ({ code: l.articleCode, designation: l.designation, quantite: l.quantite, unite: l.unite, prixUnitaire: l.prixUnitaire, total: l.total })),
             footnotes: [
                 ...(a.bonLivraisonRef ? [{ label: "BL", value: a.bonLivraisonRef }] : []),
