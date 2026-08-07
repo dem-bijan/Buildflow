@@ -55,6 +55,17 @@ export default function BpuLigneClient({ chantierId }: { chantierId: string }) {
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const firstFieldRef = useRef<HTMLInputElement>(null);
+
+  // The form is rendered above the KPIs, so it lands off-screen when opened
+  // from a row button further down the table — it looked like "Modifier" did
+  // nothing. Bring it into view and focus it whenever it opens or switches row.
+  useEffect(() => {
+    if (!showForm) return;
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    firstFieldRef.current?.focus();
+  }, [showForm, editingId]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -76,9 +87,15 @@ export default function BpuLigneClient({ chantierId }: { chantierId: string }) {
   useEffect(() => { load(); }, [load]);
 
   const startCreate = () => {
-    setEditingId(null);
     setForm(EMPTY_FORM);
     setFormError(null);
+    // While editing, this button reads "+ Ligne BPU" — so switch to a blank
+    // create form rather than toggling the open edit shut.
+    if (editingId) {
+      setEditingId(null);
+      setShowForm(true);
+      return;
+    }
     setShowForm(v => !v);
   };
 
@@ -239,8 +256,13 @@ export default function BpuLigneClient({ chantierId }: { chantierId: string }) {
 
           {canManage && showForm && (
             <form
+              ref={formRef}
               onSubmit={handleSubmit}
-              className="mb-6 rounded-2xl border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark p-4 space-y-5"
+              className={`mb-6 rounded-2xl border bg-surface-page dark:bg-surface-page-dark p-4 space-y-5 ${
+                editingId
+                  ? "border-accent shadow-card-accent"
+                  : "border-edge-subtle dark:border-edge-subtle-dark"
+              }`}
             >
               <h2 className="text-sm font-semibold text-content-primary dark:text-content-primary-dark">
                 {editingId ? "Modifier la ligne BPU" : "Nouvelle ligne BPU"}
@@ -250,6 +272,7 @@ export default function BpuLigneClient({ chantierId }: { chantierId: string }) {
                 <label className="text-sm space-y-1">
                   <span className="text-content-muted">Réf</span>
                   <input
+                    ref={firstFieldRef}
                     required
                     value={form.ref}
                     onChange={(e) => setForm(v => ({ ...v, ref: e.target.value }))}
@@ -294,11 +317,14 @@ export default function BpuLigneClient({ chantierId }: { chantierId: string }) {
                 </label>
 
                 <label className="text-sm space-y-1">
+                  {/* pu_ht is DOUBLE PRECISION, so step must be "any":
+                      step="0.01" makes the browser silently refuse to submit a
+                      sub-centime rate. */}
                   <span className="text-content-muted">PU HT</span>
                   <input
                     type="number"
                     min="0"
-                    step="0.01"
+                    step="any"
                     required
                     value={form.puHt}
                     onChange={(e) => setForm(v => ({ ...v, puHt: Number(e.target.value) }))}
@@ -333,6 +359,7 @@ export default function BpuLigneClient({ chantierId }: { chantierId: string }) {
               <BpuTable
                 lignes={lignes}
                 canManage={canManage}
+                editingId={editingId}
                 onEdit={startEdit}
                 onDelete={handleDelete}
               />
@@ -383,11 +410,13 @@ function BpuSkeleton() {
 function BpuTable({
   lignes,
   canManage,
+  editingId,
   onEdit,
   onDelete,
 }: {
   lignes: BpuLigneDTO[];
   canManage: boolean;
+  editingId: string | null;
   onEdit: (ligne: BpuLigneDTO) => void;
   onDelete: (ligne: BpuLigneDTO) => void;
 }) {
@@ -415,7 +444,14 @@ function BpuTable({
         </thead>
         <tbody>
           {lignes.map(l => (
-            <tr key={l.id} className="border-b border-edge-subtle dark:border-edge-subtle-dark hover:bg-surface-hover dark:hover:bg-surface-hover-dark transition-colors duration-150">
+            <tr
+              key={l.id}
+              className={`border-b border-edge-subtle dark:border-edge-subtle-dark transition-colors duration-150 ${
+                editingId === l.id
+                  ? "bg-accent-50 dark:bg-accent-950/30"
+                  : "hover:bg-surface-hover dark:hover:bg-surface-hover-dark"
+              }`}
+            >
               <td className="px-3 py-3 font-mono text-xs font-semibold text-accent whitespace-nowrap">{l.ref}</td>
               <td className="px-3 py-3 text-content-secondary dark:text-content-secondary-dark max-w-[240px] truncate">{l.designation}</td>
               <td className="px-3 py-3 text-content-secondary dark:text-content-secondary-dark">{l.unite}</td>
@@ -440,7 +476,7 @@ function BpuTable({
               {canManage && (
                 <td className="px-3 py-3 whitespace-nowrap">
                   <button onClick={() => onEdit(l)} className="text-xs text-accent font-semibold mr-3">
-                    Modifier
+                    {editingId === l.id ? "En cours…" : "Modifier"}
                   </button>
                   <button onClick={() => onDelete(l)} className="text-xs text-red-500 font-semibold">
                     Supprimer

@@ -932,7 +932,9 @@ function LignesPanel({ achat, onRepriced }: { achat: Achat; onRepriced: (updated
                         autoFocus
                         type="number"
                         min="0"
-                        step="0.01"
+                        // prix_unitaire is DOUBLE PRECISION: step="0.01" would
+                        // make the browser reject sub-centime rates.
+                        step="any"
                         value={draft}
                         disabled={saving}
                         onChange={(e) => setDraft(e.target.value)}

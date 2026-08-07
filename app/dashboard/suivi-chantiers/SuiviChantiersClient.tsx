@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { fetchChantiers, createChantier, updateChantier, deleteChantier, demarrerChantier } from "@/lib/api/chantier";
 import { extractApiErrorMessage } from "@/lib/api/client";
@@ -57,6 +57,15 @@ export default function SuiviChantiersClient() {
   // "could not load the page at all" state and only renders on an empty list —
   // a failed delete used to be written there and was therefore never displayed.
   const [notice, setNotice] = useState<{ kind: "error" | "success"; text: string } | null>(null);
+  const formRef = useRef<HTMLDivElement>(null);
+
+  // Same trap as the BPU view: the form sits above the KPIs, so opening it from
+  // a row button lower down the table left it off-screen and "Modifier" looked
+  // dead. Scroll it into view whenever it opens or switches row.
+  useEffect(() => {
+    if (!showForm) return;
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [showForm, editing]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -193,11 +202,13 @@ export default function SuiviChantiersClient() {
         )}
 
         {showForm && canManage && (
-          <CreateChantierForm
-            editing={editing}
-            onCreated={() => { setShowForm(false); setEditing(null); load(); }}
-            onCancel={() => { setShowForm(false); setEditing(null); }}
-          />
+          <div ref={formRef}>
+            <CreateChantierForm
+              editing={editing}
+              onCreated={() => { setShowForm(false); setEditing(null); load(); }}
+              onCancel={() => { setShowForm(false); setEditing(null); }}
+            />
+          </div>
         )}
 
         <Section title="Vue d'ensemble">
