@@ -331,9 +331,10 @@ export default function AchatsClient() {
       } else if (step === "FACTURE") {
         ref = prompt(`Référence de la facture fournisseur pour ${achat.ref} :`, "");
         if (!ref?.trim()) return;
-      } else if (!confirm(
-        `Solder ${achat.ref} ?\n\nLa caisse du chantier "${achat.chantierNom}" sera débitée de ${fmt(achat.ttc)}.`
-      )) {
+      } else {
+        // Settling needs an explicit payment mode, so the popup takes over from
+        // here and confirmPaiement() issues the request once a mode is chosen.
+        setPayingAchat(achat);
         return;
       }
 
