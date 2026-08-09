@@ -1,3 +1,4 @@
+import type { ModePaiement } from "@/components/ModePaiementDialog";
 import apiClient, { toArrayPayload, unwrapApiPayload } from "./client";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -39,6 +40,7 @@ export interface PaiementSousTraitantDTO {
   motif: string;
   statut: PaiementStatut;
   datePaiement: string | null; // null until actually paid
+  modePaiement?: ModePaiement | null; // null until actually paid
 }
 
 export interface CreateContratSousTraitantDTO {
@@ -207,14 +209,18 @@ export async function validerPaiement(
 }
 
 /**
- * Pay a validated payment.
+ * Pay a validated payment with an explicit mode. Only CAISSE debits the
+ * chantier's caisse; a virement, cheque or effet clears through the bank.
  * PATCH /api/v1/contrats-sous-traitant/paiements/{id}/payer
  */
 export async function payerPaiement(
-  id: string
+  id: string,
+  modePaiement: ModePaiement
 ): Promise<PaiementSousTraitantDTO> {
   const { data } = await apiClient.patch<unknown>(
-    `/contrats-sous-traitant/paiements/${id}/payer`
+    `/contrats-sous-traitant/paiements/${id}/payer`,
+    null,
+    { params: { modePaiement } }
   );
   return unwrapApiPayload<PaiementSousTraitantDTO>(data);
 }

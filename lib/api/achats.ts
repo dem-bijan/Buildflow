@@ -1,5 +1,6 @@
 import apiClient, { toArrayPayload, unwrapApiPayload } from "./client";
 import type { Achat } from "@/components/functions2";
+import type { ModePaiement } from "@/components/ModePaiementDialog";
 
 export interface CreateLigneAchatDTO {
   articleId: string;
@@ -73,12 +74,17 @@ export async function validateFacture(id: string, factureRef: string): Promise<A
 }
 
 /**
- * Settle the order. Debits the chantier's caisse by the TTC, and fails with
- * 422 "Insufficient funds" if the balance is short.
+ * Settle the order with an explicit payment mode. Only CAISSE debits the
+ * chantier's caisse (and can fail with 422 "Insufficient funds"); a virement,
+ * cheque or effet clears through the bank and leaves the balance untouched.
  * PATCH /api/v1/achats/{id}/validate-paiement — roles ADMIN, FINANCE
  */
-export async function validatePaiement(id: string): Promise<Achat> {
-  const { data } = await apiClient.patch<unknown>(`/achats/${id}/validate-paiement`);
+export async function validatePaiement(id: string, modePaiement: ModePaiement): Promise<Achat> {
+  const { data } = await apiClient.patch<unknown>(
+    `/achats/${id}/validate-paiement`,
+    null,
+    { params: { modePaiement } }
+  );
   return unwrapApiPayload<Achat>(data);
 }
 
