@@ -638,7 +638,25 @@ function FinanceKpisSection({
           label="VALEUR STOCKS GLOBALE (HT)"
           value={kpis?.valeurStocksGlobaleHt}
           textColor="text-blue-600 dark:text-blue-500"
-          subNode={<div className="text-[11px] text-content-muted dark:text-[#5a6275] mt-2 flex justify-between font-bold"><span>Dépôts: <span className="text-content-primary dark:text-white">0</span></span><span>En Travaux: <span className="text-amber-600 dark:text-amber-500">0</span></span></div>}
+          subNode={
+            // Both figures used to be hardcoded 0 — there was no dépôt in the
+            // model, so nothing could compute the split. They now come from the
+            // stock location and always add up to the total above.
+            <div className="text-[11px] text-content-muted dark:text-[#5a6275] mt-2 flex justify-between font-bold">
+              <span>
+                Dépôts:{" "}
+                <span className="text-content-primary dark:text-white">
+                  {loading || kpis?.valeurStocksDepotHt === undefined ? "—" : fmt(kpis.valeurStocksDepotHt)}
+                </span>
+              </span>
+              <span>
+                En Travaux:{" "}
+                <span className="text-amber-600 dark:text-amber-500">
+                  {loading || kpis?.valeurStocksEnTravauxHt === undefined ? "—" : fmt(kpis.valeurStocksEnTravauxHt)}
+                </span>
+              </span>
+            </div>
+          }
           loading={loading}
         />
       </div>
