@@ -18,9 +18,13 @@ export interface DashboardKpisDTO {
   decaissementsCaisseTtc: number;
   encaissementsGlobauxTtc: number;
   decaissementsGlobauxTtc: number;
+  /** Same outflows net of the recoverable TVA on settled purchases. */
+  decaissementsGlobauxHt: number;
 
   // Margin formulas.
   margeNetteComptableHt: number;
+  /** The margin read entirely on HT — no TVA on either side. */
+  resultatHorsFiscaliteHt: number;
   margeEnCoursPrevisionnelleHt: number;
 }
 

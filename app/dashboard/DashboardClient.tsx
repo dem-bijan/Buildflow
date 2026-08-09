@@ -665,18 +665,27 @@ function FinanceKpisSection({
       <div className="bg-surface-card dark:bg-surface-card-dark p-6 rounded-xl border border-edge-default dark:border-[#242830] mt-6 flex flex-col sm:flex-row justify-between items-start sm:items-center">
         <div>
           <h4 className="text-sm font-bold text-content-secondary dark:text-[#5a6275] uppercase tracking-wider">MARGE NETTE COMPTABLE (HT)</h4>
-          {/* dark: uses content-secondary-dark, not the hardcoded #3d4350 these
-              cards had — that is a light-mode ink, and on the #1a1d25 card it
-              lands at 1.7:1, i.e. invisible. */}
-          <p className="text-xs text-content-muted dark:text-content-secondary-dark mt-1">Formule : Encaissements Réels HT - Décaissements Réels TTC + Valeur des Stocks HT</p>
+          <p className="text-xs text-content-muted dark:text-[#3d4350] mt-1">Formule : Encaissements Réels HT - Décaissements Réels TTC + Valeur des Stocks HT</p>
           {/* Secondary note: the formula nets operational flows only, so the
-              figure is not a taxable result. Subordinate to the formula by size
-              and italics rather than a lighter ink, which at 11px would drop
-              below a readable contrast ratio. */}
-          <p className="text-[11px] italic text-content-muted dark:text-content-secondary-dark mt-1">Indicateur calculé hors fiscalité (flux opérationnels ajustés)</p>
+              figure is not a taxable result. Kept subordinate to the formula. */}
+          <p className="text-[11px] italic text-content-muted/85 dark:text-[#3d4350] mt-1">Indicateur calculé hors fiscalité (flux opérationnels ajustés)</p>
         </div>
         <div className={`text-3xl font-black font-['Space_Grotesk'] mt-4 sm:mt-0 ${kpis?.margeNetteComptableHt && kpis.margeNetteComptableHt < 0 ? "text-red-600 dark:text-red-500" : "text-green-600 dark:text-green-500"}`}>
           {loading ? <Skeleton className="w-32 h-8" /> : `${kpis?.margeNetteComptableHt !== undefined ? fmt(kpis.margeNetteComptableHt) : "—"} MAD`}
+        </div>
+      </div>
+
+      {/* The same margin read entirely on HT. The card above nets HT revenue
+          against TTC spend, so its result still carries the TVA paid on
+          purchases; this one removes it. Same card form, deliberately. */}
+      <div className="bg-surface-card dark:bg-surface-card-dark p-6 rounded-xl border border-edge-default dark:border-[#242830] mt-4 flex flex-col sm:flex-row justify-between items-start sm:items-center">
+        <div>
+          <h4 className="text-sm font-bold text-content-secondary dark:text-[#5a6275] uppercase tracking-wider">RÉSULTAT HORS FISCALITÉ (HT)</h4>
+          <p className="text-xs text-content-muted dark:text-[#3d4350] mt-1">Formule : Encaissements Réels HT - Décaissements Réels HT + Valeur des Stocks HT</p>
+          <p className="text-[11px] italic text-content-muted/85 dark:text-[#3d4350] mt-1">Hors TVA sur achats réglés · écart avec la marge nette comptable : {kpis?.margeNetteComptableHt !== undefined && kpis?.resultatHorsFiscaliteHt !== undefined ? `${fmt(kpis.resultatHorsFiscaliteHt - kpis.margeNetteComptableHt)} MAD` : "—"}</p>
+        </div>
+        <div className={`text-3xl font-black font-['Space_Grotesk'] mt-4 sm:mt-0 ${kpis?.resultatHorsFiscaliteHt && kpis.resultatHorsFiscaliteHt < 0 ? "text-red-600 dark:text-red-500" : "text-green-600 dark:text-green-500"}`}>
+          {loading ? <Skeleton className="w-32 h-8" /> : `${kpis?.resultatHorsFiscaliteHt !== undefined ? fmt(kpis.resultatHorsFiscaliteHt) : "—"} MAD`}
         </div>
       </div>
 
