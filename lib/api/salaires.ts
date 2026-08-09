@@ -4,7 +4,10 @@ import apiClient, { toArrayPayload, unwrapApiPayload } from "./client";
 // Backend DTO shape returned by GET /api/v1/salaires and GET /api/v1/salaires/{id}
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type ModePaiement = "VIREMENT" | "CAISSE";
+// Re-exported from the shared dialog so every module speaks the same four
+// modes. CAISSE stays in the union for records paid before the others existed.
+export type { ModePaiement } from "@/components/ModePaiementDialog";
+import type { ModePaiement } from "@/components/ModePaiementDialog";
 
 export interface SalarieDTO {
   id: string;

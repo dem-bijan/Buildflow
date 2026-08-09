@@ -4,7 +4,14 @@ import { useState, useMemo } from "react";
 import { hydrate } from "@/components/functions2";
 import type { FichePaie, SalairesHydrated } from "@/components/functions2";
 import { salairesHydrationConfig } from "@/components/functions2";
-import { validerSalarie, payerSalarie, type SalarieDTO, type ModePaiement } from "@/lib/api/salaires";
+import { validerSalarie, payerSalarie, type SalarieDTO } from "@/lib/api/salaires";
+import { changerModePaiement } from "@/lib/api/modePaiement";
+import { extractApiErrorMessage } from "@/lib/api/client";
+import {
+  ModePaiementDialog,
+  ModePaiementBadge,
+  type ModePaiement,
+} from "@/components/ModePaiementDialog";
 import {
   ChartJsLoader, Section, ChartCard, Card,
   KpiGrid,
@@ -33,7 +40,12 @@ export default function SalairesClient({
   const [search, setSearch] = useState("");
   const [actioningId, setActioningId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  // Which payslip is having its mode chosen (before payment) or corrected (after).
   const [choosingModeId, setChoosingModeId] = useState<string | null>(null);
+  const [changingModeId, setChangingModeId] = useState<string | null>(null);
+  const [modeSubmitting, setModeSubmitting] = useState(false);
+  const [modeError, setModeError] = useState<string | null>(null);
+  const [modeNotice, setModeNotice] = useState<string | null>(null);
 
   const filtered = search
     ? fiches.filter(f =>
@@ -55,23 +67,86 @@ export default function SalairesClient({
     }
   };
 
-  const runPayer = async (id: string, modePaiement: ModePaiement) => {
-    setActioningId(id);
-    setActionError(null);
+  /** Pay a validated payslip with the mode chosen in the popup. */
+  const runPayer = async (modePaiement: ModePaiement) => {
+    if (!choosingModeId) return;
+    setModeSubmitting(true);
+    setModeError(null);
     try {
-      await payerSalarie(id, modePaiement);
-      onRefresh?.();
-    } catch {
-      setActionError("Action impossible");
-    } finally {
-      setActioningId(null);
+      await payerSalarie(choosingModeId, modePaiement);
       setChoosingModeId(null);
+      onRefresh?.();
+    } catch (err) {
+      setModeError(extractApiErrorMessage(err, "Paiement impossible."));
+    } finally {
+      setModeSubmitting(false);
     }
   };
+
+  /**
+   * Correct the mode of an already-paid payslip. The caisse balance is not
+   * adjusted by this; the server returns a warning when that leaves it out of
+   * step, and the change is recorded in the audit trail either way.
+   */
+  const runChangeMode = async (modePaiement: ModePaiement) => {
+    if (!changingModeId) return;
+    setModeSubmitting(true);
+    setModeError(null);
+    try {
+      const res = await changerModePaiement("FICHE_PAIE", changingModeId, modePaiement);
+      setChangingModeId(null);
+      setModeNotice(res.avertissement ?? null);
+      onRefresh?.();
+    } catch (err) {
+      setModeError(extractApiErrorMessage(err, "Modification impossible."));
+    } finally {
+      setModeSubmitting(false);
+    }
+  };
+
+  const ficheEnCours = fiches.find(f => f.id === (choosingModeId ?? changingModeId));
 
   return (
     <ChartJsLoader>
       <div className="bg-surface-page dark:bg-surface-page-dark min-h-full py-6 px-4 sm:px-6 lg:px-8">
+
+        {/* Choosing the mode at payment time. */}
+        <ModePaiementDialog
+          open={choosingModeId !== null}
+          subtitle={ficheEnCours ? `Fiche de paie ${ficheEnCours.reference}` : undefined}
+          submitting={modeSubmitting}
+          error={modeError}
+          onConfirm={runPayer}
+          onCancel={() => { setChoosingModeId(null); setModeError(null); }}
+        />
+
+        {/* Correcting the mode of a payslip that is already paid. */}
+        <ModePaiementDialog
+          open={changingModeId !== null}
+          title="Modifier le mode de paiement"
+          subtitle={ficheEnCours ? `Fiche de paie ${ficheEnCours.reference}` : undefined}
+          current={ficheEnCours?.modePaiement}
+          submitting={modeSubmitting}
+          error={modeError}
+          onConfirm={runChangeMode}
+          onCancel={() => { setChangingModeId(null); setModeError(null); }}
+        />
+
+        {modeNotice && (
+          <div
+            role="status"
+            className="mb-6 flex items-start justify-between gap-4 rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-900/20 px-4 py-3 text-sm text-amber-800 dark:text-amber-300"
+          >
+            <span>{modeNotice}</span>
+            <button
+              onClick={() => setModeNotice(null)}
+              aria-label="Fermer"
+              className="shrink-0 font-semibold opacity-70 hover:opacity-100 transition-opacity"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>
@@ -131,9 +206,8 @@ export default function SalairesClient({
               fiches={filtered}
               actioningId={actioningId}
               onAction={runAction}
-              choosingModeId={choosingModeId}
               onChooseMode={setChoosingModeId}
-              onPayer={runPayer}
+              onChangeMode={setChangingModeId}
             />
           </Card>
         </Section>
@@ -147,16 +221,14 @@ function FichesTable({
   fiches,
   actioningId,
   onAction,
-  choosingModeId,
   onChooseMode,
-  onPayer,
+  onChangeMode,
 }: {
   fiches: SalarieDTO[];
   actioningId: string | null;
   onAction: (id: string, action: "valider") => void;
-  choosingModeId: string | null;
   onChooseMode: (id: string | null) => void;
-  onPayer: (id: string, modePaiement: ModePaiement) => void;
+  onChangeMode: (id: string | null) => void;
 }) {
   if (fiches.length === 0) {
     return (
@@ -213,7 +285,7 @@ function FichesTable({
                       {isBusy ? "…" : "Valider"}
                     </button>
                   )}
-                  {f.statut === "VALIDE" && choosingModeId !== f.id && (
+                  {f.statut === "VALIDE" && (
                     <button
                       onClick={() => onChooseMode(f.id)}
                       disabled={isBusy}
@@ -222,36 +294,17 @@ function FichesTable({
                       {isBusy ? "…" : "Payer"}
                     </button>
                   )}
-                  {f.statut === "VALIDE" && choosingModeId === f.id && (
+                  {f.statut === "PAYEE" && (
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-content-muted dark:text-content-muted-dark">Via :</span>
+                      <ModePaiementBadge mode={f.modePaiement} />
                       <button
-                        onClick={() => onPayer(f.id, "VIREMENT")}
+                        onClick={() => onChangeMode(f.id)}
                         disabled={isBusy}
-                        className="px-2.5 py-1 text-xs font-semibold text-accent border border-accent/30 rounded-lg hover:bg-accent/5 disabled:opacity-50 transition-colors"
+                        className="text-xs text-accent font-semibold hover:underline disabled:opacity-50"
                       >
-                        {isBusy ? "…" : "Virement"}
-                      </button>
-                      <button
-                        onClick={() => onPayer(f.id, "CAISSE")}
-                        disabled={isBusy}
-                        className="px-2.5 py-1 text-xs font-semibold text-white bg-accent hover:bg-accent/90 rounded-lg disabled:opacity-50 transition-colors"
-                      >
-                        {isBusy ? "…" : "Caisse"}
-                      </button>
-                      <button
-                        onClick={() => onChooseMode(null)}
-                        disabled={isBusy}
-                        className="text-xs text-content-muted hover:text-content-primary transition-colors"
-                      >
-                        ✕
+                        Modifier
                       </button>
                     </div>
-                  )}
-                  {f.statut === "PAYEE" && (
-                    <span className="text-xs text-content-muted dark:text-content-muted-dark">
-                      {f.modePaiement === "VIREMENT" ? "Virement" : "Caisse"}
-                    </span>
                   )}
                 </td>
               </tr>

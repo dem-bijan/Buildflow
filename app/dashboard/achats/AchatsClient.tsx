@@ -12,6 +12,12 @@ import {
 } from "@/lib/api/achats";
 import { extractApiErrorMessage } from "@/lib/api/client";
 import { useAuth } from "@/lib/authContext";
+import { changerModePaiement } from "@/lib/api/modePaiement";
+import {
+  ModePaiementDialog,
+  ModePaiementBadge,
+  type ModePaiement,
+} from "@/components/ModePaiementDialog";
 import {
   IndicateurBadge,
   IndicateurCheckbox,
@@ -259,6 +265,54 @@ export default function AchatsClient() {
   const [notice, setNotice] = useState<{ kind: "error" | "success"; text: string } | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
 
+  // Payment-mode popup: `payingAchat` settles an order, `changingAchat`
+  // corrects the mode of one already settled.
+  const [payingAchat, setPayingAchat] = useState<Achat | null>(null);
+  const [changingAchat, setChangingAchat] = useState<Achat | null>(null);
+  const [modeSubmitting, setModeSubmitting] = useState(false);
+  const [modeError, setModeError] = useState<string | null>(null);
+
+  /** FACTURE -> PAYE with the mode chosen in the popup. */
+  const confirmPaiement = useCallback(async (modePaiement: ModePaiement) => {
+    if (!payingAchat) return;
+    setModeSubmitting(true);
+    setModeError(null);
+    try {
+      await validatePaiement(payingAchat.id, modePaiement);
+      setNotice({
+        kind: "success",
+        text: modePaiement === "CAISSE"
+          ? `${payingAchat.ref} soldé en espèces. La caisse a été débitée de ${fmt(payingAchat.ttc)}.`
+          : `${payingAchat.ref} soldé par ${modePaiement.toLowerCase()}. La caisse n'a pas été débitée.`,
+      });
+      setPayingAchat(null);
+      await load();
+    } catch (err) {
+      setModeError(extractApiErrorMessage(err, `Impossible de solder ${payingAchat.ref}.`));
+    } finally {
+      setModeSubmitting(false);
+    }
+  }, [payingAchat, load]);
+
+  /** Correct the mode of an already-paid order; the caisse is not adjusted. */
+  const confirmChangeMode = useCallback(async (modePaiement: ModePaiement) => {
+    if (!changingAchat) return;
+    setModeSubmitting(true);
+    setModeError(null);
+    try {
+      const res = await changerModePaiement("ACHAT", changingAchat.id, modePaiement);
+      setChangingAchat(null);
+      setNotice(res.avertissement
+        ? { kind: "error", text: res.avertissement }
+        : { kind: "success", text: `Mode de paiement de ${changingAchat.ref} mis à jour.` });
+      await load();
+    } catch (err) {
+      setModeError(extractApiErrorMessage(err, "Modification impossible."));
+    } finally {
+      setModeSubmitting(false);
+    }
+  }, [changingAchat, load]);
+
   /**
    * Advance one order along EN_COURS → LIVRE → FACTURE → PAYE.
    *
@@ -292,9 +346,6 @@ export default function AchatsClient() {
         } else if (step === "FACTURE") {
           await validateFacture(achat.id, ref!.trim());
           setNotice({ kind: "success", text: `Facture enregistrée pour ${achat.ref}.` });
-        } else {
-          await validatePaiement(achat.id);
-          setNotice({ kind: "success", text: `${achat.ref} soldé. La caisse a été débitée de ${fmt(achat.ttc)}.` });
         }
         await load();
       } catch (err) {
@@ -352,6 +403,30 @@ export default function AchatsClient() {
             </PrimaryActionButton>
           </div>
         </div>
+
+        {/* Choosing the mode when settling an order. */}
+        <ModePaiementDialog
+          open={payingAchat !== null}
+          subtitle={payingAchat
+            ? `Commande ${payingAchat.ref} — ${fmt(payingAchat.ttc)} TTC · chantier ${payingAchat.chantierNom}`
+            : undefined}
+          submitting={modeSubmitting}
+          error={modeError}
+          onConfirm={confirmPaiement}
+          onCancel={() => { setPayingAchat(null); setModeError(null); }}
+        />
+
+        {/* Correcting the mode of an order already settled. */}
+        <ModePaiementDialog
+          open={changingAchat !== null}
+          title="Modifier le mode de paiement"
+          subtitle={changingAchat ? `Commande ${changingAchat.ref}` : undefined}
+          current={changingAchat?.modePaiement}
+          submitting={modeSubmitting}
+          error={modeError}
+          onConfirm={confirmChangeMode}
+          onCancel={() => { setChangingAchat(null); setModeError(null); }}
+        />
 
         {notice && (
           <div
@@ -779,6 +854,7 @@ export default function AchatsClient() {
               onToggleIndicateur={toggleIndicateur}
               onRepriced={handleRepriced}
               onTransition={runTransition}
+              onChangeMode={setChangingAchat}
               canValiderBL={canValiderBL}
               canValiderFinance={canValiderFinance}
               pendingId={pendingId}
@@ -837,7 +913,7 @@ function AchatsSkeleton() {
           <div className="px-4 pt-4 pb-3">
             <Skeleton className="h-9 w-full sm:w-80 rounded-lg" />
           </div>
-          <TableSkeleton columns={11} rows={6} />
+          <TableSkeleton columns={12} rows={6} />
         </Card>
       </Section>
     </>
@@ -1009,6 +1085,7 @@ function AchatsTable({
   onToggleIndicateur,
   onRepriced,
   onTransition,
+  onChangeMode,
   canValiderBL,
   canValiderFinance,
   pendingId,
@@ -1021,6 +1098,7 @@ function AchatsTable({
   ) => void;
   onRepriced: (updated: Achat) => void;
   onTransition: (achat: Achat, step: "BL" | "FACTURE" | "PAIEMENT") => void;
+  onChangeMode: (achat: Achat) => void;
   canValiderBL: boolean;
   canValiderFinance: boolean;
   pendingId: string | null;
@@ -1038,7 +1116,7 @@ function AchatsTable({
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-sm border-collapse min-w-[1050px]">
+      <table className="w-full text-sm border-collapse min-w-[1200px]">
         <thead>
           <tr className="border-b-2 border-edge-default dark:border-edge-default-dark">
             {["Réf", "Fournisseur", "Chantier", "Date", "HT", "TVA", "TTC", "Statut"].map(title => (
@@ -1057,6 +1135,9 @@ function AchatsTable({
               className="text-left px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-content-muted dark:text-content-muted-dark whitespace-nowrap"
             >
               {INDICATEURS.fiscal.short}
+            </th>
+            <th className="text-left px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-content-muted dark:text-content-muted-dark whitespace-nowrap">
+              Paiement
             </th>
             <th className="text-left px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-content-muted dark:text-content-muted-dark whitespace-nowrap">
               Actions
@@ -1105,6 +1186,23 @@ function AchatsTable({
                   />
                 </td>
                 <td className="px-3 py-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                  {achat?.status === "PAYE" ? (
+                    <span className="inline-flex items-center gap-2">
+                      <ModePaiementBadge mode={achat.modePaiement} />
+                      {canValiderFinance && (
+                        <button
+                          onClick={() => onChangeMode(achat)}
+                          className="text-[11px] text-accent font-semibold hover:underline"
+                        >
+                          Modifier
+                        </button>
+                      )}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-content-muted dark:text-content-muted-dark">—</span>
+                  )}
+                </td>
+                <td className="px-3 py-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                   {(() => {
                     if (!achat) return null;
                     const next = nextTransition(achat.status, canValiderBL, canValiderFinance);
@@ -1135,7 +1233,7 @@ function AchatsTable({
               </tr>
               {isOpen && achat && (
                 <tr>
-                  <td colSpan={11} className="bg-surface-hover dark:bg-surface-hover-dark px-4 py-4">
+                  <td colSpan={12} className="bg-surface-hover dark:bg-surface-hover-dark px-4 py-4">
                     <LignesPanel achat={achat} onRepriced={onRepriced} />
                   </td>
                 </tr>

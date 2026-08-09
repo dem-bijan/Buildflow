@@ -13,6 +13,12 @@ import { hydrate, fmt } from "@/components/functions2";
 import type { Paiement, PaiementsHydrated, PaiementType } from "@/components/functions2";
 import { paiementsHydrationConfig } from "@/components/functions2";
 import { CodeField } from "@/components/CodeField";
+import { extractApiErrorMessage } from "@/lib/api/client";
+import { changerModePaiement } from "@/lib/api/modePaiement";
+import {
+  ModePaiementDialog,
+  type ModePaiement,
+} from "@/components/ModePaiementDialog";
 
 import {
   ChartJsLoader,
@@ -96,16 +102,30 @@ export default function PaymentsClient() {
     }
   }, []);
 
-  const handlePay = async (id: string) => {
-    setActionLoading(true);
+  // Paying now needs an explicit mode, so the button opens the popup and the
+  // request only goes out once the user confirms a choice.
+  const [payingId, setPayingId] = useState<string | null>(null);
+  const [modeSubmitting, setModeSubmitting] = useState(false);
+  const [modeError, setModeError] = useState<string | null>(null);
+
+  const handlePay = (id: string) => {
+    setModeError(null);
+    setPayingId(id);
+  };
+
+  const confirmPay = async (modePaiement: ModePaiement) => {
+    if (!payingId) return;
+    setModeSubmitting(true);
+    setModeError(null);
     try {
-      await payerPaiement(id);
+      await payerPaiement(payingId, modePaiement);
+      setPayingId(null);
       await load();
       setSelectedPaiement(null);
-    } catch {
-      alert("Erreur lors du paiement.");
+    } catch (err) {
+      setModeError(extractApiErrorMessage(err, "Erreur lors du paiement."));
     } finally {
-      setActionLoading(false);
+      setModeSubmitting(false);
     }
   };
 
@@ -204,6 +224,18 @@ export default function PaymentsClient() {
 
   return (
     <>
+    {/* Choosing the mode when settling a subcontractor payment. */}
+    <ModePaiementDialog
+      open={payingId !== null}
+      subtitle={(() => {
+        const p = paiements.find(x => x.id === payingId);
+        return p ? `Paiement ${p.ref} — ${fmt(p.montantTotal)}` : undefined;
+      })()}
+      submitting={modeSubmitting}
+      error={modeError}
+      onConfirm={confirmPay}
+      onCancel={() => { setPayingId(null); setModeError(null); }}
+    />
     <div className="bg-surface-page dark:bg-surface-page-dark min-h-full py-6 px-4 sm:px-6 lg:px-8">
       <FadeSwap show={loading && paiements.length === 0} skeleton={<PaymentsSkeleton />}>
       <ChartJsLoader>
