@@ -1,13 +1,19 @@
 import apiClient, { toArrayPayload, unwrapApiPayload } from "./client";
 
-export type TypeMouvement = "ENTREE" | "SORTIE" | "AJUSTEMENT";
+export type TypeMouvement = "ENTREE" | "SORTIE" | "AJUSTEMENT" | "TRANSFERT";
+
+/** Where a stock line sits. */
+export type EmplacementStock = "DEPOT" | "CHANTIER";
 
 export interface CreateMouvementStockDTO {
   articleId: string;
-  chantierId: string;
+  /** Omit (or null) to target the central dépôt. */
+  chantierId?: string | null;
   typeMouvement: TypeMouvement;
   quantite: number;
   documentRef?: string;
+  /** TRANSFERT only — destination. Omit (or null) to move into the dépôt. */
+  chantierDestinationId?: string | null;
 }
 
 export interface StockArticleDTO {
@@ -15,8 +21,11 @@ export interface StockArticleDTO {
   articleCode: string;
   designation: string;
   unite: string;
-  chantierId: string;
+  /** Null when the line sits in the central dépôt. */
+  chantierId: string | null;
+  /** "Dépôt central" when there is no chantier. */
   chantierNom: string;
+  emplacement: EmplacementStock;
   quantiteTheorique: number;
   seuilAlerte: number;
   enAlerte: boolean;
@@ -45,4 +54,19 @@ export async function fetchStocksByChantier(
 export async function createMouvementStock(payload: CreateMouvementStockDTO): Promise<StockArticleDTO> {
   const { data } = await apiClient.post<unknown>("/stocks/mouvements", payload);
   return unwrapApiPayload<StockArticleDTO>(data);
+}
+
+/**
+ * Stock held in the central dépôt — not yet allocated to any chantier.
+ * GET /api/v1/stocks/depot
+ */
+export async function fetchStocksDepot(
+  page = 0,
+  size = 100,
+  sort = "article.designation"
+): Promise<StockArticleDTO[]> {
+  const { data } = await apiClient.get<unknown>("/stocks/depot", {
+    params: { page, size, sort },
+  });
+  return toArrayPayload<StockArticleDTO>(data);
 }

@@ -9,6 +9,10 @@ export interface DashboardKpisDTO {
   paieAPayerNet: number;
   attachementsEnCoursTtc: number;
   valeurStocksGlobaleHt: number;
+  /** Split of the line above: still in the central dépôt. */
+  valeurStocksDepotHt: number;
+  /** Split of the line above: allocated to chantiers ("en travaux"). */
+  valeurStocksEnTravauxHt: number;
 
   // Flow KPIs — scoped to `month` when provided, all-time otherwise.
   decaissementsCaisseTtc: number;

@@ -3,10 +3,12 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   fetchStocksByChantier,
+  fetchStocksDepot,
   createMouvementStock,
   type StockArticleDTO,
   type TypeMouvement,
 } from "@/lib/api/stocks";
+import { extractApiErrorMessage } from "@/lib/api/client";
 import { fetchChantiers, type ChantierDTO } from "@/lib/api/chantier";
 import { fetchArticles } from "@/lib/api/articles";
 import { useAuth } from "@/lib/authContext";
@@ -22,12 +24,17 @@ import {
 } from "@/components/Functions";
 import type { KpiItem } from "@/components/Functions";
 
+/** Sentinel for the central dépôt — stock with no chantier. */
+const DEPOT_ID = "DEPOT";
+
 export default function StocksClient() {
   const { user } = useAuth();
   const canManage = user?.role === "ADMIN" || user?.role === "MAGASINIER" || user?.role === "PM";
 
   const [chantiers, setChantiers] = useState<ChantierDTO[]>([]);
-  const [chantierId, setChantierId] = useState<string>("");
+  // The location being viewed: DEPOT_ID for the central dépôt, otherwise a
+  // chantier id. Stock now lives in one or the other.
+  const [chantierId, setChantierId] = useState<string>(DEPOT_ID);
   const [stocks, setStocks] = useState<StockArticleDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +47,8 @@ export default function StocksClient() {
     typeMouvement: TypeMouvement;
     quantite: number;
     documentRef: string;
-  }>({ articleId: "", typeMouvement: "ENTREE", quantite: 0, documentRef: "" });
+    destinationId: string;
+  }>({ articleId: "", typeMouvement: "ENTREE", quantite: 0, documentRef: "", destinationId: "" });
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -48,9 +56,6 @@ export default function StocksClient() {
     try {
       const data = await fetchChantiers();
       setChantiers(data);
-      if (data.length > 0) {
-        setChantierId((prev) => prev || data[0].id);
-      }
     } catch {
       const msg = "Une erreur est survenue. Veuillez réessayer.";
       setError(msg);
@@ -62,7 +67,7 @@ export default function StocksClient() {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchStocksByChantier(id);
+      const data = id === DEPOT_ID ? await fetchStocksDepot() : await fetchStocksByChantier(id);
       setStocks(data);
     } catch {
       const msg = "Une erreur est survenue. Veuillez réessayer.";
@@ -91,16 +96,21 @@ export default function StocksClient() {
     try {
       await createMouvementStock({
         articleId: movementForm.articleId,
-        chantierId,
+        // null targets the dépôt on both sides of the movement
+        chantierId: chantierId === DEPOT_ID ? null : chantierId,
         typeMouvement: movementForm.typeMouvement,
         quantite: Number(movementForm.quantite),
         documentRef: movementForm.documentRef || undefined,
+        ...(movementForm.typeMouvement === "TRANSFERT"
+          ? { chantierDestinationId: movementForm.destinationId === DEPOT_ID ? null : movementForm.destinationId }
+          : {}),
       });
       setShowForm(false);
-      setMovementForm({ articleId: "", typeMouvement: "ENTREE", quantite: 0, documentRef: "" });
+      setMovementForm({ articleId: "", typeMouvement: "ENTREE", quantite: 0, documentRef: "", destinationId: "" });
       await loadStocks(chantierId);
-    } catch {
-      setFormError("Impossible d'enregistrer ce mouvement (quantité insuffisante en stock ?).");
+    } catch (err) {
+      setFormError(extractApiErrorMessage(
+        err, "Impossible d'enregistrer ce mouvement (quantité insuffisante en stock ?)."));
     } finally {
       setSubmitting(false);
     }
@@ -115,7 +125,7 @@ export default function StocksClient() {
 
   const enAlerte = stocks.filter(s => s.enAlerte);
   const kpis: KpiItem[] = [
-    { label: "Articles en stock", value: `${stocks.length}`, sub: chantiers.find(c => c.id === chantierId)?.nom ?? "" },
+    { label: "Articles en stock", value: `${stocks.length}`, sub: chantierId === DEPOT_ID ? "Dépôt central" : (chantiers.find(c => c.id === chantierId)?.nom ?? "") },
     { label: "Alertes seuil", value: `${enAlerte.length}`, sub: "articles à réapprovisionner" },
     { label: "Quantité théorique totale", value: `${stocks.reduce((s, a) => s + a.quantiteTheorique, 0).toLocaleString("fr-FR")}`, sub: "toutes unités confondues" },
   ];
@@ -159,6 +169,8 @@ export default function StocksClient() {
               onChange={(e) => setChantierId(e.target.value)}
               className="px-3 py-2 text-sm rounded-lg border border-edge-subtle dark:border-edge-subtle-dark bg-surface-page dark:bg-surface-page-dark text-content-primary dark:text-content-primary-dark focus:outline-none focus:ring-2 focus:ring-accent/40 transition-shadow"
             >
+              {/* The dépôt is a location in its own right, listed first. */}
+              <option value={DEPOT_ID}>Dépôt central</option>
               {chantiers.map(c => (
                 <option key={c.id} value={c.id}>{c.nom}</option>
               ))}
@@ -207,8 +219,27 @@ export default function StocksClient() {
                   <option value="ENTREE">Entrée (+)</option>
                   <option value="SORTIE">Sortie (-)</option>
                   <option value="AJUSTEMENT">Ajustement (+)</option>
+                  <option value="TRANSFERT">Transfert (→)</option>
                 </select>
               </label>
+
+              {movementForm.typeMouvement === "TRANSFERT" && (
+                <label className="text-sm space-y-1">
+                  <span className="text-content-muted">Destination</span>
+                  <select
+                    required
+                    value={movementForm.destinationId}
+                    onChange={(e) => setMovementForm(v => ({ ...v, destinationId: e.target.value }))}
+                    className="w-full rounded-lg border border-edge-subtle px-3 py-2"
+                  >
+                    <option value="">Choisir une destination</option>
+                    {chantierId !== DEPOT_ID && <option value={DEPOT_ID}>Dépôt central</option>}
+                    {chantiers
+                      .filter(c => c.id !== chantierId)
+                      .map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
+                  </select>
+                </label>
+              )}
 
               <label className="text-sm space-y-1">
                 <span className="text-content-muted">Quantité</span>
@@ -321,7 +352,7 @@ function StocksTable({ stocks }: { stocks: StockArticleDTO[] }) {
       <table className="w-full text-sm border-collapse min-w-[700px]">
         <thead>
           <tr className="border-b-2 border-edge-default dark:border-edge-default-dark">
-            {["Code", "Désignation", "Unité", "Chantier", "Qté théorique", "Seuil alerte", "Statut"].map(h => (
+            {["Code", "Désignation", "Unité", "Emplacement", "Qté théorique", "Seuil alerte", "Statut"].map(h => (
               <th key={h} className="text-left px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-content-muted dark:text-content-muted-dark whitespace-nowrap">
                 {h}
               </th>
@@ -334,7 +365,15 @@ function StocksTable({ stocks }: { stocks: StockArticleDTO[] }) {
               <td className="px-3 py-3 font-mono text-xs font-semibold text-accent whitespace-nowrap">{s.articleCode}</td>
               <td className="px-3 py-3 font-medium text-content-primary dark:text-content-primary-dark max-w-[240px] truncate">{s.designation}</td>
               <td className="px-3 py-3 text-content-secondary dark:text-content-secondary-dark">{s.unite}</td>
-              <td className="px-3 py-3 text-content-secondary dark:text-content-secondary-dark">{s.chantierNom}</td>
+              <td className="px-3 py-3">
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${
+                  s.emplacement === "DEPOT"
+                    ? "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+                    : "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400"
+                }`}>
+                  {s.chantierNom}
+                </span>
+              </td>
               <td className="px-3 py-3 text-content-secondary dark:text-content-secondary-dark">{s.quantiteTheorique.toLocaleString("fr-FR")}</td>
               <td className="px-3 py-3 text-content-secondary dark:text-content-secondary-dark">{s.seuilAlerte.toLocaleString("fr-FR")}</td>
               <td className="px-3 py-3">
