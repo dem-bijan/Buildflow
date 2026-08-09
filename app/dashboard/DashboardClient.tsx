@@ -666,6 +666,9 @@ function FinanceKpisSection({
         <div>
           <h4 className="text-sm font-bold text-content-secondary dark:text-[#5a6275] uppercase tracking-wider">MARGE NETTE COMPTABLE (HT)</h4>
           <p className="text-xs text-content-muted dark:text-[#3d4350] mt-1">Formule : Encaissements Réels HT - Décaissements Réels TTC + Valeur des Stocks HT</p>
+          {/* Secondary note: the formula nets operational flows only, so the
+              figure is not a taxable result. Kept subordinate to the formula. */}
+          <p className="text-[11px] italic text-content-muted/85 dark:text-[#3d4350] mt-1">Indicateur calculé hors fiscalité (flux opérationnels ajustés)</p>
         </div>
         <div className={`text-3xl font-black font-['Space_Grotesk'] mt-4 sm:mt-0 ${kpis?.margeNetteComptableHt && kpis.margeNetteComptableHt < 0 ? "text-red-600 dark:text-red-500" : "text-green-600 dark:text-green-500"}`}>
           {loading ? <Skeleton className="w-32 h-8" /> : `${kpis?.margeNetteComptableHt !== undefined ? fmt(kpis.margeNetteComptableHt) : "—"} MAD`}
