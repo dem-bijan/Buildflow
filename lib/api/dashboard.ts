@@ -6,6 +6,9 @@ export interface DashboardKpisDTO {
   // Balance KPIs — as of now, not period-scoped.
   dettesFournisseursTtc: number;
   dettesSousTraitantsTtc: number;
+  /** Same debts read net of tax — what the margin formulas use. */
+  dettesFournisseursHt: number;
+  dettesSousTraitantsHt: number;
   paieAPayerNet: number;
   attachementsEnCoursTtc: number;
   valeurStocksGlobaleHt: number;

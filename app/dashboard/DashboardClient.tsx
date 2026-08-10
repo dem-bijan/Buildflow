@@ -44,6 +44,8 @@ import { fetchEcritures } from "@/lib/api/comptabilite";
 import { fetchStocksByChantier, type StockArticleDTO } from "@/lib/api/stocks";
 import { fetchDashboardKpis, type DashboardKpisDTO } from "@/lib/api/dashboard";
 import { fmt } from "@/components/functions2";
+import { ExportExcelButton } from "@/components/ExportExcelButton";
+import type { ExportSection } from "@/lib/api/export";
 
 import { useAuth } from "@/lib/authContext";
 import { isAllowed, type Role } from "@/lib/auth/permissions";
@@ -294,10 +296,12 @@ export default function DashboardClient() {
     kpi: string;
     sub: string;
     chart: ReactNode;
+    exportSection?: ExportSection;
   }[] = [
     {
       href: "/dashboard/achats",
       title: "Achats",
+      exportSection: "ACHATS" as ExportSection,
       kpi: hAchats.kpis[0]?.value ?? "—",
       sub: hAchats.kpis[0]?.sub ?? "",
       chart: hAchats.statuses.length > 0 ? <DonutChart data={hAchats.statuses} /> : null,
@@ -305,6 +309,7 @@ export default function DashboardClient() {
     {
       href: "/dashboard/fournisseurs",
       title: "Fournisseurs",
+      exportSection: "FOURNISSEURS" as ExportSection,
       kpi: hFournisseurs.kpis[0]?.value ?? "—",
       sub: hFournisseurs.kpis[0]?.sub ?? "",
       chart: hFournisseurs.statuses.length > 0 ? <DonutChart data={hFournisseurs.statuses} /> : null,
@@ -331,6 +336,7 @@ export default function DashboardClient() {
     },
     {
       href: "/dashboard/suivi-chantiers",
+      exportSection: "CHANTIERS" as ExportSection,
       title: "Suivi Chantiers",
       kpi: hChantiers.kpis[0]?.value ?? "—",
       sub: hChantiers.kpis[0]?.sub ?? "",
@@ -338,6 +344,7 @@ export default function DashboardClient() {
     },
     {
       href: "/dashboard/tresorerie",
+      exportSection: "CAISSES" as ExportSection,
       title: "Trésorerie et Caisse",
       kpi: hTresorerie.kpis[2]?.value ?? "—",
       sub: hTresorerie.kpis[2]?.sub ?? "",
@@ -345,6 +352,7 @@ export default function DashboardClient() {
     },
     {
       href: "/dashboard/sous-traitance",
+      exportSection: "SOUS_TRAITANCE" as ExportSection,
       title: "Sous Traitance",
       kpi: hSousTraitance.kpis[1]?.value ?? "—",
       sub: hSousTraitance.kpis[1]?.sub ?? "",
@@ -352,6 +360,7 @@ export default function DashboardClient() {
     },
     {
       href: "/dashboard/salaires",
+      exportSection: "SALAIRES" as ExportSection,
       title: "Salaires",
       kpi: hSalaires.kpis[0]?.value ?? "—",
       sub: hSalaires.kpis[0]?.sub ?? "",
@@ -359,6 +368,7 @@ export default function DashboardClient() {
     },
     {
       href: "/dashboard/catalogue",
+      exportSection: "ARTICLES" as ExportSection,
       title: "Catalogue Articles",
       kpi: hCatalogue.kpis[0]?.value ?? "—",
       sub: hCatalogue.kpis[0]?.sub ?? "",
@@ -373,6 +383,7 @@ export default function DashboardClient() {
     },
     {
       href: "/dashboard/annuaire",
+      exportSection: "EMPLOYES" as ExportSection,
       title: "Annuaire",
       kpi: hAnnuaire.kpis[0]?.value ?? "—",
       sub: hAnnuaire.kpis[0]?.sub ?? "",
@@ -555,13 +566,18 @@ function FinanceKpisSection({
           <h1 className="text-2xl font-bold text-content-primary dark:text-white mb-1">Tableau de Bord Direction</h1>
           <p className="text-xs text-content-muted dark:text-gray-400">Situation en temps réel — <span id="dash-current-month-text">{month ? `Mois : ${month.split('-')[1]}/${month.split('-')[0]}` : 'Toutes les périodes'}</span></p>
         </div>
-        <input
-          type="month"
-          id="dash-month-filter"
-          className="w-auto h-10 px-3 bg-surface-card dark:bg-surface-card-dark text-content-primary dark:text-content-primary-dark border border-edge-default dark:border-[#242830] rounded-lg outline-none"
-          value={month}
-          onChange={(e) => onMonthChange(e.target.value)}
-        />
+        <div className="flex items-center gap-3">
+          <input
+            type="month"
+            id="dash-month-filter"
+            className="w-auto h-10 px-3 bg-surface-card dark:bg-surface-card-dark text-content-primary dark:text-content-primary-dark border border-edge-default dark:border-[#242830] rounded-lg outline-none"
+            value={month}
+            onChange={(e) => onMonthChange(e.target.value)}
+          />
+          {/* Whole dashboard, one sheet per section. Carries the month filter
+              so the exported indicators match what is on screen. */}
+          <ExportExcelButton month={month || undefined} size="md" />
+        </div>
       </div>
 
       <h3 className="text-content-secondary dark:text-[#5a6275] mb-3 text-[11px] font-bold tracking-wider uppercase">
@@ -665,7 +681,7 @@ function FinanceKpisSection({
       <div className="bg-surface-card dark:bg-surface-card-dark p-6 rounded-xl border border-edge-default dark:border-[#242830] mt-6 flex flex-col sm:flex-row justify-between items-start sm:items-center">
         <div>
           <h4 className="text-sm font-bold text-content-secondary dark:text-[#5a6275] uppercase tracking-wider">MARGE NETTE COMPTABLE (HT)</h4>
-          <p className="text-xs text-content-muted dark:text-[#3d4350] mt-1">Formule : Encaissements Réels HT - Décaissements Réels TTC + Valeur des Stocks HT</p>
+          <p className="text-xs text-content-muted dark:text-[#3d4350] mt-1">Formule : Encaissements Réels HT - Décaissements Réels HT + Valeur des Stocks HT</p>
           {/* Secondary note: the formula nets operational flows only, so the
               figure is not a taxable result. Kept subordinate to the formula. */}
           <p className="text-[11px] italic text-content-muted/85 dark:text-[#3d4350] mt-1">Indicateur calculé hors fiscalité (flux opérationnels ajustés)</p>
@@ -681,8 +697,8 @@ function FinanceKpisSection({
       <div className="bg-surface-card dark:bg-surface-card-dark p-6 rounded-xl border border-edge-default dark:border-[#242830] mt-4 flex flex-col sm:flex-row justify-between items-start sm:items-center">
         <div>
           <h4 className="text-sm font-bold text-content-secondary dark:text-[#5a6275] uppercase tracking-wider">RÉSULTAT HORS FISCALITÉ (HT)</h4>
-          <p className="text-xs text-content-muted dark:text-[#3d4350] mt-1">Formule : Encaissements Réels HT - Décaissements « effet chantier » HT + Valeur des Stocks HT</p>
-          <p className="text-[11px] italic text-content-muted/85 dark:text-[#3d4350] mt-1">Seules les opérations à effet chantier sont retenues ; toute opération à effet fiscal est exclue du calcul. Décaissements retenus : {kpis?.decaissementsEffetChantierHt !== undefined ? `${fmt(kpis.decaissementsEffetChantierHt)} MAD` : "—"}</p>
+          <p className="text-xs text-content-muted dark:text-[#3d4350] mt-1">Formule : Encaissements Réels HT - Décaissements « effet chantier » HT</p>
+          <p className="text-[11px] italic text-content-muted/85 dark:text-[#3d4350] mt-1">Flux opérationnels uniquement, hors stocks. Seules les opérations à effet chantier sont retenues ; toute opération à effet fiscal est exclue. Décaissements retenus : {kpis?.decaissementsEffetChantierHt !== undefined ? `${fmt(kpis.decaissementsEffetChantierHt)} MAD` : "—"}</p>
         </div>
         <div className={`text-3xl font-black font-['Space_Grotesk'] mt-4 sm:mt-0 ${kpis?.resultatHorsFiscaliteHt && kpis.resultatHorsFiscaliteHt < 0 ? "text-red-600 dark:text-red-500" : "text-green-600 dark:text-green-500"}`}>
           {loading ? <Skeleton className="w-32 h-8" /> : `${kpis?.resultatHorsFiscaliteHt !== undefined ? fmt(kpis.resultatHorsFiscaliteHt) : "—"} MAD`}
@@ -692,7 +708,7 @@ function FinanceKpisSection({
       <div className="bg-surface-card/50 dark:bg-surface-card-dark/50 p-4 mb-6 rounded-xl border border-edge-subtle dark:border-[#242830] mt-4 flex flex-col sm:flex-row justify-between items-start sm:items-center">
         <div>
           <h4 className="text-xs font-bold text-content-secondary dark:text-[#5a6275] uppercase tracking-wider">MARGE EN COURS (PRÉVISIONNELLE HT)</h4>
-          <p className="text-[10px] text-content-muted dark:text-[#3d4350] mt-1">Formule : Attachements en attente HT - Dettes à payer (Fournisseurs TTC + Sous-traitants TTC + Paie NET)</p>
+          <p className="text-[10px] text-content-muted dark:text-[#3d4350] mt-1">Formule : Attachements en attente HT - Dettes à payer HT (Fournisseurs HT + Sous-traitants HT + Paie NET)</p>
         </div>
         <div className={`text-xl font-bold font-['Space_Grotesk'] mt-4 sm:mt-0 ${kpis?.margeEnCoursPrevisionnelleHt && kpis.margeEnCoursPrevisionnelleHt < 0 ? "text-red-600 dark:text-red-500" : "text-green-600 dark:text-green-500"}`}>
           {loading ? <Skeleton className="w-24 h-6" /> : `${kpis?.margeEnCoursPrevisionnelleHt !== undefined ? fmt(kpis.margeEnCoursPrevisionnelleHt) : "—"} MAD`}
@@ -748,12 +764,15 @@ function DomainCard({
   kpi,
   sub,
   chart,
+  exportSection,
 }: {
   href: string;
   title: string;
   kpi: string;
   sub: string;
   chart: ReactNode;
+  /** Omitted for sections with no tabular data worth exporting. */
+  exportSection?: ExportSection;
 }) {
   return (
     <Link href={href} className="block group h-full">
@@ -762,7 +781,10 @@ function DomainCard({
           <p className="text-[11px] font-bold text-content-secondary dark:text-[#5a6275] uppercase tracking-wide">
             {title}
           </p>
-          <span className="text-content-muted dark:text-[#3d4350] group-hover:text-accent transition-colors text-xs">→</span>
+          <span className="flex items-center gap-2">
+            {exportSection && <ExportExcelButton section={exportSection} />}
+            <span className="text-content-muted dark:text-[#3d4350] group-hover:text-accent transition-colors text-xs">→</span>
+          </span>
         </div>
         <p className="text-xl font-bold font-mono text-content-primary dark:text-[#fafbfd] mb-0.5">{kpi}</p>
         <p className="text-xs text-content-muted dark:text-[#5a6275] mb-3">{sub}</p>
