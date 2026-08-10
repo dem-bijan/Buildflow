@@ -20,6 +20,8 @@ export interface DashboardKpisDTO {
   decaissementsGlobauxTtc: number;
   /** Same outflows net of the recoverable TVA on settled purchases. */
   decaissementsGlobauxHt: number;
+  /** Outflows flagged effet chantier and not effet fiscal. */
+  decaissementsEffetChantierHt: number;
 
   // Margin formulas.
   margeNetteComptableHt: number;
