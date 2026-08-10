@@ -666,7 +666,11 @@ export default function AchatsClient() {
 
                     <input
                       type="number"
-                      min="1"
+                      // Quantities are DOUBLE PRECISION like the unit price, so
+                      // the browser must not round to whole units — a line can
+                      // legitimately be 2.75 t or 0.125 m³.
+                      min="0"
+                      step="any"
                       required
                       value={ligne.quantite}
                       onChange={(e) =>
