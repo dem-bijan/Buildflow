@@ -6,6 +6,9 @@ export interface DashboardKpisDTO {
   // Balance KPIs — as of now, not period-scoped.
   dettesFournisseursTtc: number;
   dettesSousTraitantsTtc: number;
+  /** Same debts read net of tax — what the margin formulas use. */
+  dettesFournisseursHt: number;
+  dettesSousTraitantsHt: number;
   paieAPayerNet: number;
   attachementsEnCoursTtc: number;
   valeurStocksGlobaleHt: number;
@@ -18,9 +21,15 @@ export interface DashboardKpisDTO {
   decaissementsCaisseTtc: number;
   encaissementsGlobauxTtc: number;
   decaissementsGlobauxTtc: number;
+  /** Same outflows net of the recoverable TVA on settled purchases. */
+  decaissementsGlobauxHt: number;
+  /** Outflows flagged effet chantier and not effet fiscal. */
+  decaissementsEffetChantierHt: number;
 
   // Margin formulas.
   margeNetteComptableHt: number;
+  /** The margin read entirely on HT — no TVA on either side. */
+  resultatHorsFiscaliteHt: number;
   margeEnCoursPrevisionnelleHt: number;
 }
 
