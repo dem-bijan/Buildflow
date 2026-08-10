@@ -66,7 +66,7 @@ export default function SidebarItem({ href, title, icon: Icon, onClick }: Sideba
             <div className="flex justify-center w-7 h-7 min-w-7 rounded-md items-center shadow-sm">
                 <Icon size={16} color={isDark ? "white" : "gray"} strokeWidth={2} />
             </div>
-            <span className={`font-medium ${isActive ? "text-zinc-900 font-semibold" : ""}`}>
+            <span className={`font-medium ${isActive ? "dark:text-zinc-100   text-zinc-900 font-semibold" : ""}`}>
                 {title}
             </span>
         </Link>
