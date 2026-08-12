@@ -89,6 +89,18 @@ export async function validatePaiement(id: string, modePaiement: ModePaiement): 
 }
 
 /**
+ * Défait un règlement enregistré à tort : la commande repasse à FACTURE et la
+ * caisse récupère ce qui en était sorti. Le serveur refuse de contre-passer
+ * l'écriture depuis la caisse, c'est ici que ça se fait.
+ *
+ * PATCH /api/v1/achats/{id}/annuler-paiement
+ */
+export async function annulerPaiement(id: string, motif?: string): Promise<Achat> {
+  const { data } = await apiClient.patch(`/achats/${id}/annuler-paiement`, { motif });
+  return unwrapApiPayload<Achat>(data);
+}
+
+/**
  * Toggle the operational billing indicators on an existing achat.
  * PATCH /api/v1/achats/{id}/indicateurs
  */

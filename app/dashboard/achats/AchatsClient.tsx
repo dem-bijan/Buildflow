@@ -9,6 +9,7 @@ import {
   updateMontantHt,
   validateBL,
   validateFacture,
+  annulerPaiement,
   validatePaiement,
 } from "@/lib/api/achats";
 import { extractApiErrorMessage } from "@/lib/api/client";
@@ -322,6 +323,43 @@ export default function AchatsClient() {
    * "Insufficient funds in caisse …". Reloading afterwards keeps stock and
    * caisse figures in step with the transition's side effects.
    */
+  /**
+   * Défait un règlement saisi à tort. Le montant revient en caisse et la
+   * commande redevient une facture à régler — les deux ensemble, sans quoi la
+   * commande resterait payée sans dette ni décaissement.
+   */
+  const runAnnulerPaiement = useCallback(
+    async (achat: Achat) => {
+      const motif = prompt(
+        `Annuler le paiement de ${achat.ref} ?
+
+` +
+        `${achat.ttc} DH reviennent en caisse et la commande redevient une facture ` +
+        `à régler.
+
+Motif (facultatif) :`,
+        ""
+      );
+      if (motif === null) return;
+
+      setPendingId(achat.id);
+      setNotice(null);
+      try {
+        await annulerPaiement(achat.id, motif || undefined);
+        setNotice({ kind: "success", text: `Paiement de ${achat.ref} annulé.` });
+        await load();
+      } catch (err) {
+        setNotice({
+          kind: "error",
+          text: extractApiErrorMessage(err, "Impossible d'annuler ce paiement."),
+        });
+      } finally {
+        setPendingId(null);
+      }
+    },
+    [load]
+  );
+
   const runTransition = useCallback(
     async (achat: Achat, step: "BL" | "FACTURE" | "PAIEMENT") => {
       let ref: string | null = null;
@@ -860,6 +898,7 @@ export default function AchatsClient() {
               onToggleIndicateur={toggleIndicateur}
               onRepriced={handleRepriced}
               onTransition={runTransition}
+              onAnnulerPaiement={runAnnulerPaiement}
               onChangeMode={setChangingAchat}
               canValiderBL={canValiderBL}
               canValiderFinance={canValiderFinance}
@@ -1177,6 +1216,7 @@ function AchatsTable({
   onToggleIndicateur,
   onRepriced,
   onTransition,
+  onAnnulerPaiement,
   onChangeMode,
   canValiderBL,
   canValiderFinance,
@@ -1190,6 +1230,7 @@ function AchatsTable({
   ) => void;
   onRepriced: (updated: Achat) => void;
   onTransition: (achat: Achat, step: "BL" | "FACTURE" | "PAIEMENT") => void;
+  onAnnulerPaiement: (achat: Achat) => void;
   onChangeMode: (achat: Achat) => void;
   canValiderBL: boolean;
   canValiderFinance: boolean;
@@ -1299,7 +1340,22 @@ function AchatsTable({
                     if (!achat) return null;
                     const next = nextTransition(achat.status, canValiderBL, canValiderFinance);
                     if (!next) {
-                      return <span className="text-[11px] text-content-muted dark:text-content-muted-dark">Soldé</span>;
+                      // Une commande soldée n'a plus d'étape devant elle, mais son
+                      // règlement peut avoir été saisi à tort. C'est le seul endroit
+                      // d'où l'annuler : contre-passer l'écriture depuis la caisse
+                      // rendrait l'argent en laissant la commande payée.
+                      return canValiderFinance ? (
+                        <button
+                          onClick={() => onAnnulerPaiement(achat)}
+                          disabled={pendingId === achat.id}
+                          className="text-xs font-semibold text-red-600 dark:text-red-400 hover:underline disabled:opacity-50 disabled:cursor-wait"
+                          title="Le montant est rendu à la caisse et la commande redevient une facture à régler"
+                        >
+                          {pendingId === achat.id ? "…" : "Annuler le paiement"}
+                        </button>
+                      ) : (
+                        <span className="text-[11px] text-content-muted dark:text-content-muted-dark">Soldé</span>
+                      );
                     }
                     if (!next.allowed) {
                       return (
