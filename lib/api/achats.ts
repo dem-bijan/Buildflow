@@ -127,3 +127,26 @@ export async function updateLignePrix(
     warning: (body as { message?: string | null })?.message ?? null,
   };
 }
+
+/**
+ * Re-price the whole commande to a new total HT — a renegotiated order rather
+ * than one renegotiated article. The lines keep the proportions they have.
+ *
+ * PATCH /api/v1/achats/{achatId}/montant
+ */
+export async function updateMontantHt(
+  achatId: string,
+  montantHt: number
+): Promise<{ achat: Achat; warning: string | null }> {
+  const { data } = await apiClient.patch<unknown>(
+    `/achats/${achatId}/montant`,
+    { montantHt },
+    { transformResponse: [(raw) => raw] }
+  );
+
+  const body = typeof data === "string" ? JSON.parse(data) : data;
+  return {
+    achat: unwrapApiPayload<Achat>(body),
+    warning: (body as { message?: string | null })?.message ?? null,
+  };
+}
